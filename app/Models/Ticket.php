@@ -8,24 +8,59 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Ticket extends Model
 {
-    protected $fillable = ['ticket_number', 'subject', 'description', 'status', 'customer_id', 'assigned_to', 'closed_at'];
+    protected $fillable = [
+        'ticket_number', 
+        'subject', 
+        'description', 
+        'status', 
+        'impact',      
+        'customer_id', 
+        'assigned_to', 
+        'closed_at'
+    ];
 
-    // Een ticket hoort bij één klant
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);
     }
 
-    // Een ticket is toegewezen aan één user (agent)
     public function agent(): BelongsTo
     {
-        // We moeten 'assigned_to' specificeren omdat de kolomnaam afwijkt van 'user_id'
         return $this->belongsTo(User::class, 'assigned_to');
     }
 
-    // Een ticket kan meerdere labels hebben (Many-to-Many)
     public function labels(): BelongsToMany
     {
         return $this->belongsToMany(Label::class);
+    }
+
+    // Helper method voor leesbaar impact label
+    public function getImpactLabelAttribute(): ?string
+    {
+        if (!$this->impact) {
+            return null; // Of return 'Geen impact'; als je een label wilt tonen
+        }
+
+        return match($this->impact) {
+            'low' => 'Low impact',
+            'medium' => 'Medium impact',
+            'high' => 'High impact',
+            default => null,
+        };
+    }
+
+    // Helper method voor impact kleur
+    public function getImpactColorAttribute(): string
+    {
+        if (!$this->impact) {
+            return 'bg-gray-100 text-gray-500'; // Grijze badge voor "geen impact"
+        }
+
+        return match($this->impact) {
+            'low' => 'bg-green-100 text-green-800',
+            'medium' => 'bg-yellow-100 text-yellow-800',
+            'high' => 'bg-red-100 text-red-800',
+            default => 'bg-gray-100 text-gray-500',
+        };
     }
 }

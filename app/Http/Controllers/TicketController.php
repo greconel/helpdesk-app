@@ -4,75 +4,110 @@ namespace App\Http\Controllers;
 
 use App\Models\Ticket;
 use App\Models\Customer;
+use App\Models\Label;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class TicketController extends Controller
 {
-    /**
-     * Toon het formulier voor een nieuw ticket
-     */
     public function create()
     {
         return view('tickets.create');
     }
 
-    /**
-     * Sla een nieuw ticket op
-     */
     public function store(Request $request)
-    {
-        // Validatie
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|max:255',
-            'subject' => 'required|string|max:255',
-            'description' => 'required|string',
-        ], [
-            'name.required' => 'Naam is verplicht',
-            'email.required' => 'E-mailadres is verplicht',
-            'email.email' => 'Voer een geldig e-mailadres in',
-            'subject.required' => 'Onderwerp is verplicht',
-            'description.required' => 'Beschrijving is verplicht',
+{
+    $validated = $request->validate([
+        'name' => 'required|string|max:255',
+        'email' => 'required|email|max:255',
+        'subject' => 'required|string|max:255',
+        'description' => 'required|string',
+    ], [
+        'name.required' => 'Naam is verplicht',
+        'email.required' => 'E-mailadres is verplicht',
+        'email.email' => 'Voer een geldig e-mailadres in',
+        'subject.required' => 'Onderwerp is verplicht',
+        'description.required' => 'Beschrijving is verplicht',
+    ]);
+
+    DB::beginTransaction();
+    try {
+        $customer = Customer::firstOrCreate(
+            ['email' => $validated['email']],
+            ['name' => $validated['name']]
+        );
+
+        $ticketNumber = $this->generateTicketNumber();
+
+        $ticket = Ticket::create([
+            'ticket_number' => $ticketNumber,
+            'subject' => $validated['subject'],
+            'description' => $validated['description'],
+            'status' => 'new',
+            'impact' => null, // NIEUW: impact is null bij nieuwe tickets
+            'customer_id' => $customer->id,
         ]);
 
-        DB::beginTransaction();
-        try {
-            // Zoek of maak klant aan
-            $customer = Customer::firstOrCreate(
-                ['email' => $validated['email']],
-                ['name' => $validated['name']]
-            );
+        DB::commit();
 
-            // Genereer ticket nummer
-            $ticketNumber = $this->generateTicketNumber();
+        return redirect()
+            ->route('tickets.create')
+            ->with('success', "Uw ticket ({$ticketNumber}) is succesvol aangemaakt.");
 
-            // Maak ticket aan
-            $ticket = Ticket::create([
-                'ticket_number' => $ticketNumber,
-                'subject' => $validated['subject'],
-                'description' => $validated['description'],
-                'status' => 'new',
-                'customer_id' => $customer->id,
-            ]);
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return back()
+            ->withInput()
+            ->with('error', 'Er is iets misgegaan. Probeer het opnieuw.');
+    }
+}
 
-            DB::commit();
+    public function update(Request $request, Ticket $ticket)
+    {
+        $validated = $request->validate([
+            'impact' => 'nullable|in:low,medium,high',
+            'labels' => 'array',
+            'labels.*' => 'exists:labels,id',
+            'assigned_to' => 'nullable|exists:users,id',
+        ]);
 
-            return redirect()
-                ->route('tickets.create')
-                ->with('success', "Uw ticket ({$ticketNumber}) is succesvol aangemaakt. We nemen zo snel mogelijk contact met u op.");
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return back()
-                ->withInput()
-                ->with('error', 'Er is iets misgegaan. Probeer het opnieuw.');
+        // Als er iemand wordt toegewezen EN de status is nog 'new', zet dan naar 'in_progress'
+        if (isset($validated['assigned_to']) && $validated['assigned_to'] && $ticket->status === 'new') {
+            $ticket->status = 'in_progress';
         }
+
+        // Als de toegewezen persoon wordt verwijderd EN de status is 'in_progress', zet terug naar 'new'
+        if ((!isset($validated['assigned_to']) || !$validated['assigned_to']) && $ticket->assigned_to && $ticket->status === 'in_progress') {
+            $ticket->status = 'new';
+        }
+
+        // Update impact en assigned_to
+        $ticket->update([
+            'impact' => $validated['impact'] ?? null,
+            'assigned_to' => $validated['assigned_to'] ?? null,
+        ]);
+
+        // Update labels
+        if ($request->has('labels')) {
+            $ticket->labels()->sync($validated['labels']);
+        } else {
+            $ticket->labels()->sync([]);
+        }
+
+        return back()->with('success', 'Ticket succesvol bijgewerkt.');
+    }
+    public function show(Ticket $ticket)
+    {
+        $ticket->load(['customer', 'agent', 'labels']);
+        
+        // Haal alle beschikbare labels op
+        $allLabels = Label::orderBy('name')->get();
+        
+        return view('tickets.show', compact('ticket', 'allLabels'));
     }
 
-    /**
-     * Genereer een uniek ticket nummer
-     */
+    
+
     private function generateTicketNumber(): string
     {
         $lastTicket = Ticket::orderBy('id', 'desc')->first();
@@ -81,21 +116,9 @@ class TicketController extends Controller
             return '#0001';
         }
 
-        // Haal nummer uit laatste ticket (bijv. #0005 wordt 5)
         $lastNumber = (int) str_replace('#', '', $lastTicket->ticket_number);
         $newNumber = $lastNumber + 1;
 
-        // Format met leading zeros
         return '#' . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
-    }
-    /**
-     * Toon ticket details
-     */
-    public function show(Ticket $ticket)
-    {
-        // Eager load relaties
-        $ticket->load(['customer', 'agent', 'labels']);
-        
-        return view('tickets.show', compact('ticket'));
     }
 }

@@ -13,7 +13,7 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        // 1. Users aanmaken (Nel & Baziel)
+        // 1. Users aanmaken
         $nel = User::create([
             'name' => 'Nel',
             'email' => 'nel@support.be',
@@ -28,10 +28,10 @@ class DatabaseSeeder extends Seeder
             'role' => 'agent'
         ]);
 
-        // 2. Labels aanmaken
+        // 2. Labels aanmaken (NIEUW - alleen deze 4)
         $labels = [];
-        $namen = ['bug', 'niet voor ons', 'low impact', 'onderzoek', 'high impact'];
-        foreach ($namen as $naam) {
+        $labelNamen = ['bug', 'onderzoek', 'feature request', 'eigenlijk niet voor ons'];
+        foreach ($labelNamen as $naam) {
             $labels[] = Label::create(['name' => $naam]);
         }
 
@@ -40,27 +40,63 @@ class DatabaseSeeder extends Seeder
         $c2 = Customer::create(['name' => 'Piet Puk', 'email' => 'piet@mail.com']);
         $c3 = Customer::create(['name' => 'An de Vries', 'email' => 'an@mail.com']);
 
-        // 4. Tickets aanmaken (Handmatig gekoppeld)
+        // 4. Tickets aanmaken met IMPACT (enum) en LABELS (many-to-many)
         $t1 = Ticket::create([
             'ticket_number' => '#0001',
             'subject' => 'Inloggen werkt niet',
             'description' => 'Ik kan niet inloggen op het portaal.',
             'status' => 'new',
+            'impact' => 'high',    // NIEUW: impact als enum
             'customer_id' => $c1->id
         ]);
-        
-        // Koppel labels aan ticket 1 (Many-to-Many)
-        $t1->labels()->attach([$labels[0]->id, $labels[4]->id]); // bug + high impact
+        // Koppel labels (bug)
+        $t1->labels()->attach([$labels[0]->id]); // bug
 
-        Ticket::create([
+        $t2 = Ticket::create([
             'ticket_number' => '#0002',
             'subject' => 'Vraag over factuur',
             'description' => 'Mijn factuur klopt niet.',
             'status' => 'on_hold',
+            'impact' => 'medium',  // NIEUW
             'customer_id' => $c2->id,
             'assigned_to' => $nel->id
         ]);
+        // Koppel labels (onderzoek)
+        $t2->labels()->attach([$labels[1]->id]); // onderzoek
 
-        // ... herhaal dit voor de overige 3 tickets ...
+        $t3 = Ticket::create([
+            'ticket_number' => '#0003',
+            'subject' => 'Feature verzoek: Dark mode',
+            'description' => 'Kunnen jullie een dark mode toevoegen?',
+            'status' => 'new',
+            'impact' => 'low',     // NIEUW
+            'customer_id' => $c3->id
+        ]);
+        // Koppel labels (feature request)
+        $t3->labels()->attach([$labels[2]->id]); // feature request
+
+        $t4 = Ticket::create([
+            'ticket_number' => '#0004',
+            'subject' => 'Probleem met extern systeem',
+            'description' => 'Het externe systeem reageert niet.',
+            'status' => 'in_progress',
+            'impact' => 'medium',  // NIEUW
+            'customer_id' => $c1->id,
+            'assigned_to' => $baziel->id
+        ]);
+        // Koppel labels (eigenlijk niet voor ons)
+        $t4->labels()->attach([$labels[3]->id]); // eigenlijk niet voor ons
+
+        $t5 = Ticket::create([
+            'ticket_number' => '#0005',
+            'subject' => 'Bug in rapportage module',
+            'description' => 'Rapportages tonen verkeerde data.',
+            'status' => 'to_close',
+            'impact' => 'high',    // NIEUW
+            'customer_id' => $c2->id,
+            'assigned_to' => $nel->id
+        ]);
+        // Koppel meerdere labels (bug + onderzoek)
+        $t5->labels()->attach([$labels[0]->id, $labels[1]->id]); // bug + onderzoek
     }
 }

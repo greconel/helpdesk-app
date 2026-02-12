@@ -88,4 +88,14 @@ class TicketController extends Controller
         // Format met leading zeros
         return '#' . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
     }
+    /**
+     * Toon ticket details
+     */
+    public function show(Ticket $ticket)
+    {
+        // Eager load relaties
+        $ticket->load(['customer', 'agent', 'labels']);
+        
+        return view('tickets.show', compact('ticket'));
+    }
 }

@@ -97,7 +97,9 @@
                         @forelse($tickets as $ticket)
                             <tr class="hover:bg-gray-50">
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <span class="font-medium text-gray-900">{{ $ticket->ticket_number }}</span>
+                                    <a href="{{ route('tickets.show', $ticket) }}" class="font-medium text-blue-600 hover:text-blue-800">
+                                        {{ $ticket->ticket_number }}
+                                    </a>
                                 </td>
                                 <td class="px-6 py-4">
                                     <div class="text-sm text-gray-900">{{ $ticket->subject }}</div>

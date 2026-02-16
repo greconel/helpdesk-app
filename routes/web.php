@@ -18,6 +18,7 @@ Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/agents', [DashboardController::class, 'agentsBoard'])->name('agents.board');
     Route::get('/tickets/{ticket}', [TicketController::class, 'show'])->name('tickets.show');
-    Route::patch('/tickets/{ticket}', [TicketController::class, 'update'])->name('tickets.update'); // NIEUW
+    Route::patch('/tickets/{ticket}', [TicketController::class, 'update'])->name('tickets.update'); 
 });

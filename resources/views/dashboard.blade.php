@@ -3,20 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - Helpdesk</title>
+    <title>Status Board - Helpdesk</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="bg-gray-50">
+<body class="bg-gray-100">
     <!-- Header -->
-    <div class="bg-white shadow">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+    <div class="bg-white border-b border-gray-200">
+        <div class="max-w-full mx-auto px-6 py-4">
             <div class="flex justify-between items-center">
-                <h1 class="text-2xl font-bold text-gray-900">Helpdesk Dashboard</h1>
+                <div class="flex items-center gap-6">
+                    <h1 class="text-xl font-semibold text-gray-900">Helpdesk</h1>
+                    
+                    <!-- View Switcher -->
+                    <nav class="flex gap-1 bg-gray-100 p-1 rounded-lg">
+                        <span class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md">
+                            Status
+                        </span>
+                        <a href="{{ route('agents.board') }}" class="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-white rounded-md transition-colors">
+                            Agents
+                        </a>
+                    </nav>
+                </div>
+                
                 <div class="flex items-center gap-4">
-                    <span class="text-sm text-gray-600">{{ auth()->user()->name }}</span>
+                    <span class="text-sm text-gray-700">{{ auth()->user()->name }}</span>
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf
-                        <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded text-sm">
+                        <button type="submit" class="text-sm text-gray-600 hover:text-gray-900 font-medium">
                             Uitloggen
                         </button>
                     </form>
@@ -25,251 +38,116 @@
         </div>
     </div>
 
-    <!-- Main Content -->
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <!-- Stats -->
-        <div class="mb-8 grid grid-cols-1 md:grid-cols-5 gap-4">
-            <div class="bg-white rounded-lg shadow p-4">
-                <div class="text-sm font-medium text-gray-500">Nieuw</div>
-                <div class="mt-1 text-3xl font-semibold text-blue-600">
-                    {{ $tickets->where('status', 'new')->count() }}
-                </div>
-            </div>
-            <div class="bg-white rounded-lg shadow p-4">
-                <div class="text-sm font-medium text-gray-500">In behandeling</div>
-                <div class="mt-1 text-3xl font-semibold text-yellow-600">
-                    {{ $tickets->where('status', 'in_progress')->count() }}
-                </div>
-            </div>
-            <div class="bg-white rounded-lg shadow p-4">
-                <div class="text-sm font-medium text-gray-500">On hold</div>
-                <div class="mt-1 text-3xl font-semibold text-orange-600">
-                    {{ $tickets->where('status', 'on_hold')->count() }}
-                </div>
-            </div>
-            <div class="bg-white rounded-lg shadow p-4">
-                <div class="text-sm font-medium text-gray-500">Te sluiten</div>
-                <div class="mt-1 text-3xl font-semibold text-purple-600">
-                    {{ $tickets->where('status', 'to_close')->count() }}
-                </div>
-            </div>
-            <div class="bg-white rounded-lg shadow p-4">
-                <div class="text-sm font-medium text-gray-500">Gesloten</div>
-                <div class="mt-1 text-3xl font-semibold text-green-600">
-                    {{ $tickets->where('status', 'closed')->count() }}
-                </div>
-            </div>
-        </div>
+    <!-- Status Board -->
+    <div class="px-6 py-6">
+        <div class="flex gap-4 overflow-x-auto pb-4">
+            @foreach($statuses as $statusKey => $statusLabel)
+                @php
+                    $tickets = $ticketsByStatus[$statusKey];
+                    $columnStyles = [
+                        'new' => [
+                            'header' => 'bg-slate-50 border-slate-200',
+                            'badge' => 'bg-slate-100 text-slate-700 border border-slate-200'
+                        ],
+                        'in_progress' => [
+                            'header' => 'bg-blue-50 border-blue-200',
+                            'badge' => 'bg-blue-100 text-blue-700 border border-blue-200'
+                        ],
+                        'on_hold' => [
+                            'header' => 'bg-amber-50 border-amber-200',
+                            'badge' => 'bg-amber-100 text-amber-700 border border-amber-200'
+                        ],
+                        'to_close' => [
+                            'header' => 'bg-violet-50 border-violet-200',
+                            'badge' => 'bg-violet-100 text-violet-700 border border-violet-200'
+                        ],
+                        'closed' => [
+                            'header' => 'bg-emerald-50 border-emerald-200',
+                            'badge' => 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                        ],
+                    ];
+                    $style = $columnStyles[$statusKey] ?? ['header' => 'bg-gray-50 border-gray-200', 'badge' => 'bg-gray-100 text-gray-700'];
+                @endphp
+                
+                <div class="flex-shrink-0 w-80">
+                    <!-- Column Header -->
+                    <div class="px-4 py-3 border rounded-t-lg {{ $style['header'] }}">
+                        <div class="flex items-center justify-between">
+                            <h2 class="text-sm font-semibold text-gray-900">{{ $statusLabel }}</h2>
+                            <span class="text-xs font-semibold px-2 py-1 rounded {{ $style['badge'] }}">
+                                {{ $tickets->count() }}
+                            </span>
+                        </div>
+                    </div>
 
-        <!-- Filters -->
-        <div class="bg-white rounded-lg shadow mb-6 p-4">
-            <form method="GET" action="{{ route('dashboard') }}" class="grid grid-cols-1 md:grid-cols-5 gap-4">
-                <!-- Status Filter -->
-                <div>
-                    <label for="status" class="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                    <select name="status" id="status" class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">
-                        <option value="">Alle statussen</option>
-                        <option value="new" {{ request('status') === 'new' ? 'selected' : '' }}>Nieuw</option>
-                        <option value="in_progress" {{ request('status') === 'in_progress' ? 'selected' : '' }}>In behandeling</option>
-                        <option value="on_hold" {{ request('status') === 'on_hold' ? 'selected' : '' }}>On hold</option>
-                        <option value="to_close" {{ request('status') === 'to_close' ? 'selected' : '' }}>Te sluiten</option>
-                        <option value="closed" {{ request('status') === 'closed' ? 'selected' : '' }}>Gesloten</option>
-                    </select>
-                </div>
-
-                <!-- Impact Filter -->
-                <div>
-                    <label for="impact" class="block text-sm font-medium text-gray-700 mb-1">Impact</label>
-                    <select name="impact" id="impact" class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">
-                        <option value="">Alle impacts</option>
-                        <option value="null" {{ request('impact') === 'null' ? 'selected' : '' }}>Geen impact</option>
-                        <option value="low" {{ request('impact') === 'low' ? 'selected' : '' }}>Low impact</option>
-                        <option value="medium" {{ request('impact') === 'medium' ? 'selected' : '' }}>Medium impact</option>
-                        <option value="high" {{ request('impact') === 'high' ? 'selected' : '' }}>High impact</option>
-                    </select>
-                </div>
-
-                <!-- Label Filter -->
-                <div>
-                    <label for="label" class="block text-sm font-medium text-gray-700 mb-1">Label</label>
-                    <select name="label" id="label" class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">
-                        <option value="">Alle labels</option>
-                        @foreach($allLabels as $label)
-                            <option value="{{ $label->id }}" {{ request('label') == $label->id ? 'selected' : '' }}>
-                                {{ $label->name }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <!-- Toegewezen aan Filter -->
-                <div>
-                    <label for="assigned" class="block text-sm font-medium text-gray-700 mb-1">Toegewezen aan</label>
-                    <select name="assigned" id="assigned" class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">
-                        <option value="">Iedereen</option>
-                        <option value="unassigned" {{ request('assigned') === 'unassigned' ? 'selected' : '' }}>Niet toegewezen</option>
-                        @foreach($allUsers as $user)
-                            <option value="{{ $user->id }}" {{ request('assigned') == $user->id ? 'selected' : '' }}>
-                                {{ $user->name }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <!-- Buttons -->
-                <div class="flex items-end gap-2">
-                    <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-medium">
-                        Filteren
-                    </button>
-                    <a href="{{ route('dashboard') }}" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded text-sm font-medium text-center">
-                        Reset
-                    </a>
-                </div>
-            </form>
-        </div>
-
-        <!-- Active Filters Display -->
-        @if(request()->hasAny(['status', 'impact', 'label', 'assigned']))
-            <div class="mb-4 flex items-center gap-2 text-sm">
-                <span class="text-gray-600 font-medium">Actieve filters:</span>
-                @if(request('status'))
-                    <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full">
-                        Status: {{ ucfirst(str_replace('_', ' ', request('status'))) }}
-                    </span>
-                @endif
-                @if(request('impact'))
-                    <span class="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full">
-                        Impact: {{ request('impact') === 'null' ? 'Geen' : ucfirst(request('impact')) }}
-                    </span>
-                @endif
-                @if(request('label'))
-                    <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full">
-                        Label: {{ $allLabels->firstWhere('id', request('label'))->name ?? 'Onbekend' }}
-                    </span>
-                @endif
-                @if(request('assigned'))
-                    <span class="px-3 py-1 bg-purple-100 text-purple-800 rounded-full">
-                        Toegewezen: {{ request('assigned') === 'unassigned' ? 'Niet toegewezen' : ($allUsers->firstWhere('id', request('assigned'))->name ?? 'Onbekend') }}
-                    </span>
-                @endif
-                <span class="text-gray-500">({{ $tickets->count() }} {{ $tickets->count() === 1 ? 'ticket' : 'tickets' }})</span>
-            </div>
-        @endif
-
-        <!-- Tickets Table -->
-        <div class="bg-white rounded-lg shadow">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <h2 class="text-lg font-semibold text-gray-900">
-                    Alle Tickets 
-                    <span class="text-gray-500 font-normal">({{ $tickets->count() }})</span>
-                </h2>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Ticket
-                            </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Onderwerp
-                            </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Klant
-                            </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Status
-                            </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Impact
-                            </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Toegewezen aan
-                            </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Labels
-                            </th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Aangemaakt
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
+                    <!-- Tickets Container -->
+                    <div class="bg-white border-l border-r border-b rounded-b-lg p-3 space-y-2.5 min-h-[200px] max-h-[calc(100vh-200px)] overflow-y-auto">
                         @forelse($tickets as $ticket)
-                            <tr class="hover:bg-gray-50">
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <a href="{{ route('tickets.show', $ticket) }}" class="font-medium text-blue-600 hover:text-blue-800">
+                            <a href="{{ route('tickets.show', $ticket) }}" class="block bg-white border border-gray-200 rounded-lg p-3 hover:border-blue-400 hover:shadow-sm transition-all group">
+                                <!-- Ticket Header -->
+                                <div class="flex items-start justify-between mb-2">
+                                    <span class="text-xs font-semibold text-blue-600 group-hover:text-blue-700">
                                         {{ $ticket->ticket_number }}
-                                    </a>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <div class="text-sm text-gray-900">{{ $ticket->subject }}</div>
-                                    <div class="text-sm text-gray-500">{{ Str::limit($ticket->description, 50) }}</div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm text-gray-900">{{ $ticket->customer->name }}</div>
-                                    <div class="text-sm text-gray-500">{{ $ticket->customer->email }}</div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    @php
-                                        $statusColors = [
-                                            'new' => 'bg-blue-100 text-blue-800',
-                                            'in_progress' => 'bg-yellow-100 text-yellow-800',
-                                            'on_hold' => 'bg-orange-100 text-orange-800',
-                                            'to_close' => 'bg-purple-100 text-purple-800',
-                                            'closed' => 'bg-green-100 text-green-800',
-                                        ];
-                                        $statusLabels = [
-                                            'new' => 'Nieuw',
-                                            'in_progress' => 'In behandeling',
-                                            'on_hold' => 'On hold',
-                                            'to_close' => 'Te sluiten',
-                                            'closed' => 'Gesloten',
-                                        ];
-                                    @endphp
-                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ $statusColors[$ticket->status] }}">
-                                        {{ $statusLabels[$ticket->status] }}
                                     </span>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
                                     @if($ticket->impact)
-                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ $ticket->impact_color }}">
-                                            {{ $ticket->impact_label }}
+                                        @php
+                                            $impactStyles = [
+                                                'low' => 'bg-green-50 text-green-700 border border-green-200',
+                                                'medium' => 'bg-amber-50 text-amber-700 border border-amber-200',
+                                                'high' => 'bg-red-50 text-red-700 border border-red-200',
+                                            ];
+                                        @endphp
+                                        <span class="text-xs px-2 py-0.5 rounded {{ $impactStyles[$ticket->impact] ?? '' }}">
+                                            {{ ucfirst($ticket->impact) }}
                                         </span>
-                                    @else
-                                        <span class="text-gray-400 text-xs">-</span>
                                     @endif
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    {{ $ticket->agent ? $ticket->agent->name : '-' }}
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
+                                </div>
+
+                                <!-- Subject -->
+                                <h3 class="text-sm font-medium text-gray-900 mb-2.5 line-clamp-2 leading-snug">
+                                    {{ $ticket->subject }}
+                                </h3>
+
+                                <!-- Meta Info -->
+                                <div class="space-y-1.5 mb-2.5">
+                                    <p class="text-xs text-gray-600">
+                                        <span class="font-medium">Klant:</span> {{ $ticket->customer->name }}
+                                    </p>
+                                    @if($ticket->agent)
+                                        <p class="text-xs text-gray-600">
+                                            <span class="font-medium">Agent:</span> {{ $ticket->agent->name }}
+                                        </p>
+                                    @else
+                                        <p class="text-xs text-gray-400">
+                                            <span class="font-medium">Agent:</span> Niet toegewezen
+                                        </p>
+                                    @endif
+                                </div>
+
+                                <!-- Labels -->
+                                @if($ticket->labels->count() > 0)
                                     <div class="flex flex-wrap gap-1">
-                                        @foreach($ticket->labels as $label)
-                                            <span class="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded">
+                                        @foreach($ticket->labels->take(3) as $label)
+                                            <span class="text-xs px-2 py-0.5 bg-gray-50 text-gray-600 border border-gray-200 rounded">
                                                 {{ $label->name }}
                                             </span>
                                         @endforeach
+                                        @if($ticket->labels->count() > 3)
+                                            <span class="text-xs px-2 py-0.5 text-gray-500">
+                                                +{{ $ticket->labels->count() - 3 }}
+                                            </span>
+                                        @endif
                                     </div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    {{ $ticket->created_at->format('d-m-Y H:i') }}
-                                </td>
-                            </tr>
+                                @endif
+                            </a>
                         @empty
-                            <tr>
-                                <td colspan="8" class="px-6 py-4 text-center text-gray-500">
-                                    @if(request()->hasAny(['status', 'impact', 'label', 'assigned']))
-                                        Geen tickets gevonden met de huidige filters
-                                    @else
-                                        Geen tickets gevonden
-                                    @endif
-                                </td>
-                            </tr>
+                            <div class="text-center py-12 text-gray-400 text-sm">
+                                <p>Geen tickets</p>
+                            </div>
                         @endforelse
-                    </tbody>
-                </table>
-            </div>
+                    </div>
+                </div>
+            @endforeach
         </div>
     </div>
 </body>

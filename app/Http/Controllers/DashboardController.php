@@ -4,58 +4,57 @@ namespace App\Http\Controllers;
 
 use App\Models\Ticket;
 use App\Models\Label;
+use App\Models\User;
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
     /**
-     * Toon het dashboard met alle tickets
+     * Toon het dashboard - Status board (Kanban view op basis van workflow)
      */
     public function index(Request $request)
     {
-        // Start query
-        $query = Ticket::with(['customer', 'agent', 'labels']);
+        // Definieer alle statussen
+        $statuses = [
+            'new' => 'Nieuw',
+            'in_progress' => 'In behandeling',
+            'on_hold' => 'On hold',
+            'to_close' => 'Te sluiten',
+            'closed' => 'Gesloten'
+        ];
 
-        // Filter op status
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
+        // Haal tickets op per status
+        $ticketsByStatus = [];
+        foreach (array_keys($statuses) as $status) {
+            $ticketsByStatus[$status] = Ticket::with(['customer', 'agent', 'labels'])
+                ->where('status', $status)
+                ->orderBy('created_at', 'desc')
+                ->get();
         }
 
-        // Filter op impact
-        if ($request->filled('impact')) {
-            if ($request->impact === 'null') {
-                // Toon tickets zonder impact
-                $query->whereNull('impact');
-            } else {
-                $query->where('impact', $request->impact);
-            }
-        }
+        // Return view met BEIDE variabelen
+        return view('dashboard', compact('ticketsByStatus', 'statuses'));
+    }
 
-        // Filter op label
-        if ($request->filled('label')) {
-            $query->whereHas('labels', function($q) use ($request) {
-                $q->where('labels.id', $request->label);
-            });
-        }
+    /**
+     * Toon het agents board (Kanban view op basis van agents)
+     */
+    public function agentsBoard()
+    {
+        // Haal alle agents op met hun ticket count
+        $agents = User::withCount(['assignedTickets' => function($query) {
+            $query->whereIn('status', ['new', 'in_progress', 'on_hold', 'to_close']);
+        }])
+        ->orderBy('name')
+        ->get();
 
-        // Filter op toegewezen aan
-        if ($request->filled('assigned')) {
-            if ($request->assigned === 'unassigned') {
-                $query->whereNull('assigned_to');
-            } else {
-                $query->where('assigned_to', $request->assigned);
-            }
-        }
+        // Haal niet-toegewezen tickets op (alleen open tickets)
+        $unassignedTickets = Ticket::with(['customer', 'labels'])
+            ->whereNull('assigned_to')
+            ->whereIn('status', ['new', 'in_progress', 'on_hold', 'to_close'])
+            ->orderBy('created_at', 'desc')
+            ->get();
 
-        // Haal tickets op
-        $tickets = $query->orderBy('created_at', 'desc')->get();
-
-        // Haal alle labels op voor de filter dropdown
-        $allLabels = Label::orderBy('name')->get();
-
-        // Haal alle users op voor de filter dropdown
-        $allUsers = \App\Models\User::orderBy('name')->get();
-
-        return view('dashboard', compact('tickets', 'allLabels', 'allUsers'));
+        return view('agents', compact('agents', 'unassignedTickets'));
     }
 }

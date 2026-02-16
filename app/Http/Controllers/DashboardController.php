@@ -57,4 +57,8 @@ class DashboardController extends Controller
 
         return view('agents', compact('agents', 'unassignedTickets'));
     }
+    public function overview()
+    {
+        return view('overview');
+    }
 }

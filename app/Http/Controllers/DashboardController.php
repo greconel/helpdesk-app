@@ -28,7 +28,7 @@ class DashboardController extends Controller
         foreach (array_keys($statuses) as $status) {
             $ticketsByStatus[$status] = Ticket::with(['customer', 'agent', 'labels'])
                 ->where('status', $status)
-                ->orderBy('created_at', 'desc')
+                ->orderBy('updated_at', 'desc')
                 ->get();
         }
 
@@ -52,7 +52,7 @@ class DashboardController extends Controller
         $unassignedTickets = Ticket::with(['customer', 'labels'])
             ->whereNull('assigned_to')
             ->whereIn('status', ['new', 'in_progress', 'on_hold', 'to_close'])
-            ->orderBy('created_at', 'desc')
+            ->orderBy('updated_at', 'desc')
             ->get();
 
         return view('agents', compact('agents', 'unassignedTickets'));

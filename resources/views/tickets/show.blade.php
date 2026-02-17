@@ -95,6 +95,36 @@
                         @csrf
                         @method('PATCH')
 
+                        <!-- Status -->
+                        <div>
+                            <label for="status" class="block text-sm font-medium text-gray-700 mb-2">
+                                Status
+                            </label>
+                            @php
+                                $statusLabels = [
+                                    'new'         => 'Nieuw',
+                                    'in_progress' => 'In behandeling',
+                                    'on_hold'     => 'On hold',
+                                    'to_close'    => 'Te sluiten',
+                                    'closed'      => 'Gesloten',
+                                ];
+                            @endphp
+                            <select
+                                name="status"
+                                id="status"
+                                class="w-full rounded-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-sm"
+                            >
+                                @foreach($statusLabels as $value => $label)
+                                    <option value="{{ $value }}" {{ $ticket->status === $value ? 'selected' : '' }}>
+                                        {{ $label }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('status')
+                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+
                         <!-- Impact -->
                         <div>
                             <label for="impact" class="block text-sm font-medium text-gray-700 mb-2">

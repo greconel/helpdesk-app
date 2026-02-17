@@ -69,6 +69,7 @@ class TicketController extends Controller
             'labels' => 'array',
             'labels.*' => 'exists:labels,id',
             'assigned_to' => 'nullable|exists:users,id',
+            'status' => 'nullable|in:new,in_progress,on_hold,to_close,closed',
         ]);
 
         // Als er iemand wordt toegewezen EN de status is nog 'new', zet dan naar 'in_progress'
@@ -81,10 +82,14 @@ class TicketController extends Controller
             $ticket->status = 'new';
         }
 
-        // Update impact en assigned_to
+        // Update impact en assigned_to en status
         $ticket->update([
             'impact' => $validated['impact'] ?? null,
             'assigned_to' => $validated['assigned_to'] ?? null,
+             'status' => $validated['status'] ?? $ticket->status,
+               'closed_at'   => ($validated['status'] === 'closed' && $ticket->status !== 'closed')
+                        ? now()
+                        : ($validated['status'] !== 'closed' ? null : $ticket->closed_at),
         ]);
 
         // Update labels
@@ -120,5 +125,24 @@ class TicketController extends Controller
         $newNumber = $lastNumber + 1;
 
         return '#' . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
+    }
+    public function move(Request $request, Ticket $ticket)
+    {
+        $validated = $request->validate([
+            'status'      => 'nullable|in:new,in_progress,on_hold,to_close,closed',
+            'assigned_to' => 'nullable|exists:users,id',
+        ]);
+
+        $ticket->update([
+            'status'      => $validated['status'] ?? $ticket->status,
+            'assigned_to' => array_key_exists('assigned_to', $validated)
+                                ? $validated['assigned_to']
+                                : $ticket->assigned_to,
+            'closed_at'   => ($validated['status'] === 'closed' && $ticket->status !== 'closed')
+                                ? now()
+                                : ($validated['status'] !== 'closed' ? null : $ticket->closed_at),
+        ]);
+
+        return response()->json(['success' => true]);
     }
 }

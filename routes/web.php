@@ -22,4 +22,5 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/agents', [DashboardController::class, 'agentsBoard'])->name('agents.board');
     Route::get('/tickets/{ticket}', [TicketController::class, 'show'])->name('tickets.show');
     Route::patch('/tickets/{ticket}', [TicketController::class, 'update'])->name('tickets.update'); 
+    Route::patch('/tickets/{ticket}/move', [TicketController::class, 'move'])->name('tickets.move');
 });

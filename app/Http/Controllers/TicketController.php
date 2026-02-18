@@ -138,9 +138,9 @@ class TicketController extends Controller
             'assigned_to' => array_key_exists('assigned_to', $validated)
                                 ? $validated['assigned_to']
                                 : $ticket->assigned_to,
-            'closed_at'   => ($validated['status'] === 'closed' && $ticket->status !== 'closed')
+            'closed_at'   => (($validated['status'] ?? null) === 'closed' && $ticket->status !== 'closed')
                                 ? now()
-                                : ($validated['status'] !== 'closed' ? null : $ticket->closed_at),
+                                : (($validated['status'] ?? null) !== 'closed' ? null : $ticket->closed_at),
         ]);
 
         return response()->json(['success' => true]);

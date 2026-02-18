@@ -229,10 +229,11 @@
                     </div>
                 </div>
 
-                <!-- Ticket details -->
+                <!-- Ticket tijdlijn -->
                 <div class="bg-white rounded-lg border border-gray-200 p-6">
                     <h3 class="text-base font-semibold text-gray-900 mb-4">Tijdlijn</h3>
-                    <div class="space-y-3">
+                    
+                    <div class="space-y-3 mb-4">
                         <div>
                             <div class="text-sm font-medium text-gray-500 mb-1">Aangemaakt op</div>
                             <div class="text-sm text-gray-900">{{ $ticket->created_at->format('d-m-Y H:i') }}</div>
@@ -248,6 +249,62 @@
                             </div>
                         @endif
                     </div>
+
+                    <!-- Wijzigingshistoriek -->
+                    @php
+                        $activities = $ticket->activities()->latest()->get();
+                        $statusLabels = [
+                            'new' => 'Nieuw',
+                            'in_progress' => 'In behandeling',
+                            'on_hold' => 'On hold',
+                            'to_close' => 'Te sluiten',
+                            'closed' => 'Gesloten',
+                        ];
+                    @endphp
+
+                    @if($activities->count() > 0)
+                        <div class="border-t border-gray-100 pt-4">
+                            <div class="text-sm font-medium text-gray-500 mb-3">Wijzigingen</div>
+                            <div class="space-y-3">
+                                @foreach($activities as $activity)
+                                    @php
+                                        $changes = $activity->properties['attributes'] ?? [];
+                                        $old = $activity->properties['old'] ?? [];
+                                    @endphp
+                                    @foreach($changes as $field => $newValue)
+                                        @php
+                                            $oldValue = $old[$field] ?? null;
+                                            $who = $activity->causer?->name ?? 'Systeem';
+                                            $when = $activity->created_at->format('d-m-Y H:i');
+
+                                            if ($field === 'status') {
+                                                $oldLabel = $statusLabels[$oldValue] ?? $oldValue;
+                                                $newLabel = $statusLabels[$newValue] ?? $newValue;
+                                                $text = "Status gewijzigd van <strong>{$oldLabel}</strong> naar <strong>{$newLabel}</strong>";
+                                            } elseif ($field === 'assigned_to') {
+                                                $oldAgent = $oldValue ? \App\Models\User::find($oldValue)?->name ?? 'Onbekend' : 'Niemand';
+                                                $newAgent = $newValue ? \App\Models\User::find($newValue)?->name ?? 'Onbekend' : 'Niemand';
+                                                $text = "Toegewezen van <strong>{$oldAgent}</strong> naar <strong>{$newAgent}</strong>";
+                                            } elseif ($field === 'impact') {
+                                                $oldLabel = $oldValue ? ucfirst($oldValue) : 'Geen';
+                                                $newLabel = $newValue ? ucfirst($newValue) : 'Geen';
+                                                $text = "Impact gewijzigd van <strong>{$oldLabel}</strong> naar <strong>{$newLabel}</strong>";
+                                            } else {
+                                                $text = "<strong>{$field}</strong> gewijzigd";
+                                            }
+                                        @endphp
+                                        <div class="flex gap-3">
+                                            <div class="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 flex-shrink-0"></div>
+                                            <div>
+                                                <div class="text-xs text-gray-900">{!! $text !!}</div>
+                                                <div class="text-xs text-gray-400 mt-0.5">{{ $who }} · {{ $when }}</div>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>

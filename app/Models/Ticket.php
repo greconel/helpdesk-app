@@ -5,9 +5,13 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Activitylog\LogOptions;
 
 class Ticket extends Model
 {
+    use LogsActivity;
+
     protected $fillable = [
         'ticket_number', 
         'subject', 
@@ -18,6 +22,14 @@ class Ticket extends Model
         'assigned_to', 
         'closed_at'
     ];
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly(['status', 'assigned_to', 'impact'])
+            ->logOnlyDirty()
+            ->setDescriptionForEvent(fn(string $eventName) => "Ticket {$eventName}");
+    }
 
     public function customer(): BelongsTo
     {
@@ -34,12 +46,9 @@ class Ticket extends Model
         return $this->belongsToMany(Label::class);
     }
 
-    // Helper method voor leesbaar impact label
     public function getImpactLabelAttribute(): ?string
     {
-        if (!$this->impact) {
-            return null; // Of return 'Geen impact'; als je een label wilt tonen
-        }
+        if (!$this->impact) return null;
 
         return match($this->impact) {
             'low' => 'Low impact',
@@ -49,12 +58,9 @@ class Ticket extends Model
         };
     }
 
-    // Helper method voor impact kleur
     public function getImpactColorAttribute(): string
     {
-        if (!$this->impact) {
-            return 'bg-gray-100 text-gray-500'; // Grijze badge voor "geen impact"
-        }
+        if (!$this->impact) return 'bg-gray-100 text-gray-500';
 
         return match($this->impact) {
             'low' => 'bg-green-100 text-green-800',

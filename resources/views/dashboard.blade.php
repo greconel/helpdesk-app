@@ -103,8 +103,8 @@
 </div>
 
 <!-- SortableJS -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
-<script>
+
+<script type="module">
     const moveUrl = (id) => `/tickets/${id}/move`;
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
                    || '{{ csrf_token() }}';

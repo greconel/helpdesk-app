@@ -23,7 +23,7 @@
                 @forelse($unassignedTickets as $ticket)
                     <div class="ticket-card bg-white border border-gray-200 rounded-lg p-3 hover:border-blue-400 hover:shadow-sm transition-all cursor-grab active:cursor-grabbing"
                         data-id="{{ $ticket->id }}">
-                        <a href="{{ route('tickets.show', $ticket) }}" class="block group">
+                        <a href="{{ route('tickets.show', ['ticket' => $ticket, 'from' => 'agents']) }}" class="block group">
                             <div class="flex items-start justify-between mb-2">
                                 <span class="text-xs font-semibold text-blue-600 group-hover:text-blue-700">
                                     {{ $ticket->ticket_number }}
@@ -114,7 +114,7 @@
                     @forelse($agentTickets as $ticket)
                         <div class="ticket-card bg-white border border-gray-200 rounded-lg p-3 hover:border-blue-400 hover:shadow-sm transition-all cursor-grab active:cursor-grabbing"
                             data-id="{{ $ticket->id }}">
-                            <a href="{{ route('tickets.show', $ticket) }}" class="block group">
+                            <a href="{{ route('tickets.show', ['ticket' => $ticket, 'from' => 'agents']) }}" class="block group">
                                 <div class="flex items-start justify-between mb-2">
                                     <span class="text-xs font-semibold text-blue-600 group-hover:text-blue-700">
                                         {{ $ticket->ticket_number }}

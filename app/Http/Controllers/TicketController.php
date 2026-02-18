@@ -126,6 +126,7 @@ class TicketController extends Controller
 
         return '#' . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
     }
+
     public function move(Request $request, Ticket $ticket)
     {
         $validated = $request->validate([
@@ -133,14 +134,24 @@ class TicketController extends Controller
             'assigned_to' => 'nullable|exists:users,id',
         ]);
 
+        $newAssignedTo = array_key_exists('assigned_to', $validated) 
+                            ? $validated['assigned_to'] 
+                            : $ticket->assigned_to;
+
+        // Alleen naar in_progress zetten als ticket nog NIEUW is en naar een persoon wordt gesleept
+        if ($newAssignedTo && !$ticket->assigned_to && $ticket->status === 'new') {
+            $newStatus = 'in_progress';
+        }
+        else {
+            $newStatus = $validated['status'] ?? $ticket->status;
+        }
+
         $ticket->update([
-            'status'      => $validated['status'] ?? $ticket->status,
-            'assigned_to' => array_key_exists('assigned_to', $validated)
-                                ? $validated['assigned_to']
-                                : $ticket->assigned_to,
-            'closed_at'   => (($validated['status'] ?? null) === 'closed' && $ticket->status !== 'closed')
+            'status'      => $newStatus,
+            'assigned_to' => $newAssignedTo,
+            'closed_at'   => ($newStatus === 'closed' && $ticket->status !== 'closed')
                                 ? now()
-                                : (($validated['status'] ?? null) !== 'closed' ? null : $ticket->closed_at),
+                                : ($newStatus !== 'closed' ? null : $ticket->closed_at),
         ]);
 
         return response()->json(['success' => true]);

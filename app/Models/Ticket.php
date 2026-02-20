@@ -20,7 +20,9 @@ class Ticket extends Model
         'impact',      
         'customer_id', 
         'assigned_to', 
-        'closed_at'
+        'closed_at',
+        'email_token'
+
     ];
 
     public function getActivitylogOptions(): LogOptions
@@ -68,5 +70,19 @@ class Ticket extends Model
             'high' => 'bg-red-100 text-red-800',
             default => 'bg-gray-100 text-gray-500',
         };
+    }
+
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        static::creating(function ($ticket) {
+            $ticket->email_token = \Illuminate\Support\Str::uuid();
+        });
+    }
+
+    public function messages()
+    {
+        return $this->hasMany(TicketMessage::class);
     }
 }

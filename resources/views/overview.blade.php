@@ -51,10 +51,6 @@
             </div>
         </div>
     </div>
-
-    <div class="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">Toekomstige statistieken</h3>
-        <p class="text-gray-600">Hier komen binnenkort grafieken en statistieken...</p>
-    </div>
+    
 </div>
 @endsection

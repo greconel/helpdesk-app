@@ -7,8 +7,8 @@ use App\Models\Customer;
 use App\Models\Label;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use App\Events\TicketCreated;   
-use App\Events\TicketAssigned; 
+use App\Events\TicketCreated;
+use App\Events\TicketAssigned;
 
 class TicketController extends Controller
 {
@@ -46,12 +46,12 @@ class TicketController extends Controller
                 'subject' => $validated['subject'],
                 'description' => $validated['description'],
                 'status' => 'new',
-                'impact' => null, // NIEUW: impact is null bij nieuwe tickets
+                'impact' => null,
                 'customer_id' => $customer->id,
             ]);
 
             DB::commit();
-            TicketCreated::dispatch($ticket); 
+            TicketCreated::dispatch($ticket);
             return redirect()
                 ->route('tickets.create')
                 ->with('success', "Uw ticket ({$ticketNumber}) is succesvol aangemaakt.");
@@ -70,61 +70,37 @@ class TicketController extends Controller
             'impact' => 'nullable|in:low,medium,high',
             'labels' => 'array',
             'labels.*' => 'exists:labels,id',
-            'assigned_to' => 'nullable|exists:users,id',
             'status' => 'nullable|in:new,in_progress,on_hold,to_close,closed',
         ]);
 
-        $previousAgent  = !$ticket->assigned_to;
-
-        // Als er iemand wordt toegewezen EN de status is nog 'new', zet dan naar 'in_progress'
-        if (isset($validated['assigned_to']) && $validated['assigned_to'] && $ticket->status === 'new') {
-            $ticket->status = 'in_progress';
-        }
-
-        // Als de toegewezen persoon wordt verwijderd EN de status is 'in_progress', zet terug naar 'new'
-        if ((!isset($validated['assigned_to']) || !$validated['assigned_to']) && $ticket->assigned_to && $ticket->status === 'in_progress') {
-            $ticket->status = 'new';
-        }
-
-        // Update impact en assigned_to en status
         $ticket->update([
-            'impact' => $validated['impact'] ?? null,
-            'assigned_to' => $validated['assigned_to'] ?? null,
-             'status' => $validated['status'] ?? $ticket->status,
-               'closed_at'   => ($validated['status'] === 'closed' && $ticket->status !== 'closed')
-                        ? now()
-                        : ($validated['status'] !== 'closed' ? null : $ticket->closed_at),
+            'impact'  => $validated['impact'] ?? null,
+            'status'  => $validated['status'] ?? $ticket->status,
+            'closed_at' => ($validated['status'] === 'closed' && $ticket->status !== 'closed')
+                ? now()
+                : ($validated['status'] !== 'closed' ? null : $ticket->closed_at),
         ]);
 
-        // Update labels
         if ($request->has('labels')) {
             $ticket->labels()->sync($validated['labels']);
         } else {
             $ticket->labels()->sync([]);
         }
 
-        if ($ticket->assigned_to && $ticket->assigned_to != $previousAgent) {
-            TicketAssigned::dispatch($ticket, $ticket->agent);
-        }
-
         return back()->with('success', 'Ticket succesvol bijgewerkt.');
     }
+
     public function show(Ticket $ticket)
     {
         $ticket->load(['customer', 'agent', 'labels']);
-        
-        // Haal alle beschikbare labels op
         $allLabels = Label::orderBy('name')->get();
-        
         return view('tickets.show', compact('ticket', 'allLabels'));
     }
-
-    
 
     private function generateTicketNumber(): string
     {
         $lastTicket = Ticket::orderBy('id', 'desc')->first();
-        
+
         if (!$lastTicket) {
             return '#0001';
         }
@@ -142,16 +118,15 @@ class TicketController extends Controller
             'assigned_to' => 'nullable|exists:users,id',
         ]);
 
-        $previousAgent = $ticket->assigned_to; // ← toevoegen
+        $previousAgent = $ticket->assigned_to;
 
-        $newAssignedTo = array_key_exists('assigned_to', $validated) 
-                            ? $validated['assigned_to'] 
-                            : $ticket->assigned_to;
+        $newAssignedTo = array_key_exists('assigned_to', $validated)
+            ? $validated['assigned_to']
+            : $ticket->assigned_to;
 
         if ($newAssignedTo && !$ticket->assigned_to && $ticket->status === 'new') {
             $newStatus = 'in_progress';
-        }
-        else {
+        } else {
             $newStatus = $validated['status'] ?? $ticket->status;
         }
 
@@ -159,11 +134,10 @@ class TicketController extends Controller
             'status'      => $newStatus,
             'assigned_to' => $newAssignedTo,
             'closed_at'   => ($newStatus === 'closed' && $ticket->status !== 'closed')
-                                ? now()
-                                : ($newStatus !== 'closed' ? null : $ticket->closed_at),
+                ? now()
+                : ($newStatus !== 'closed' ? null : $ticket->closed_at),
         ]);
 
-        // ← toevoegen
         if ($ticket->assigned_to && $ticket->assigned_to != $previousAgent) {
             TicketAssigned::dispatch($ticket, $ticket->agent);
         }

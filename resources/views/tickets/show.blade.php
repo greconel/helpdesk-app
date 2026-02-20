@@ -30,36 +30,35 @@
                             <div class="flex items-center gap-2 flex-wrap">
                                 @php
                                     $statusColors = [
-                                        'new' => 'bg-slate-100 text-slate-700 border border-slate-200',
+                                        'new'         => 'bg-slate-100 text-slate-700 border border-slate-200',
                                         'in_progress' => 'bg-blue-100 text-blue-700 border border-blue-200',
-                                        'on_hold' => 'bg-amber-100 text-amber-700 border border-amber-200',
-                                        'to_close' => 'bg-violet-100 text-violet-700 border border-violet-200',
-                                        'closed' => 'bg-emerald-100 text-emerald-700 border border-emerald-200',
+                                        'on_hold'     => 'bg-amber-100 text-amber-700 border border-amber-200',
+                                        'to_close'    => 'bg-violet-100 text-violet-700 border border-violet-200',
+                                        'closed'      => 'bg-emerald-100 text-emerald-700 border border-emerald-200',
                                     ];
                                     $statusLabels = [
-                                        'new' => 'Nieuw',
+                                        'new'         => 'Nieuw',
                                         'in_progress' => 'In behandeling',
-                                        'on_hold' => 'On hold',
-                                        'to_close' => 'Te sluiten',
-                                        'closed' => 'Gesloten',
+                                        'on_hold'     => 'On hold',
+                                        'to_close'    => 'Te sluiten',
+                                        'closed'      => 'Gesloten',
                                     ];
                                 @endphp
                                 <span class="px-3 py-1.5 inline-flex text-xs font-semibold rounded-lg {{ $statusColors[$ticket->status] }}">
                                     {{ $statusLabels[$ticket->status] }}
                                 </span>
-                                
-                                <!-- Impact badge -->
+
                                 @if($ticket->impact)
                                     @php
                                         $impactStyles = [
-                                            'low' => 'bg-green-100 text-green-700 border border-green-200',
+                                            'low'    => 'bg-green-100 text-green-700 border border-green-200',
                                             'medium' => 'bg-amber-100 text-amber-700 border border-amber-200',
-                                            'high' => 'bg-red-100 text-red-700 border border-red-200',
+                                            'high'   => 'bg-red-100 text-red-700 border border-red-200',
                                         ];
                                         $impactLabels = [
-                                            'low' => 'Low impact',
+                                            'low'    => 'Low impact',
                                             'medium' => 'Medium impact',
-                                            'high' => 'High impact',
+                                            'high'   => 'High impact',
                                         ];
                                     @endphp
                                     <span class="px-3 py-1.5 inline-flex text-xs font-semibold rounded-lg {{ $impactStyles[$ticket->impact] }}">
@@ -67,7 +66,6 @@
                                     </span>
                                 @endif
 
-                                <!-- Labels -->
                                 @foreach($ticket->labels as $label)
                                     <span class="px-3 py-1.5 inline-flex text-xs font-semibold rounded-lg bg-gray-100 text-gray-700 border border-gray-200">
                                         {{ $label->name }}
@@ -77,7 +75,6 @@
                         </div>
                     </div>
 
-                    <!-- Description -->
                     <div class="border-t border-gray-200 pt-4 mt-4">
                         <div class="text-sm font-semibold text-gray-700 mb-2">Beschrijving</div>
                         <div class="text-gray-900 whitespace-pre-wrap leading-relaxed">{{ $ticket->description }}</div>
@@ -87,19 +84,17 @@
 
             <!-- Sidebar -->
             <div class="space-y-6">
-                <!-- Ticket eigenschappen (bewerkbaar) -->
+                <!-- Ticket eigenschappen -->
                 <div class="bg-white rounded-lg border border-gray-200 p-6">
                     <h3 class="text-base font-semibold text-gray-900 mb-4">Ticket eigenschappen</h3>
-                    
+
                     <form method="POST" action="{{ route('tickets.update', $ticket) }}" class="space-y-4">
                         @csrf
                         @method('PATCH')
 
                         <!-- Status -->
                         <div>
-                            <label for="status" class="block text-sm font-medium text-gray-700 mb-2">
-                                Status
-                            </label>
+                            <label for="status" class="block text-sm font-medium text-gray-700 mb-2">Status</label>
                             @php
                                 $statusLabels = [
                                     'new'         => 'Nieuw',
@@ -109,11 +104,7 @@
                                     'closed'      => 'Gesloten',
                                 ];
                             @endphp
-                            <select
-                                name="status"
-                                id="status"
-                                class="w-full rounded-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-sm"
-                            >
+                            <select name="status" id="status" class="w-full rounded-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-sm">
                                 @foreach($statusLabels as $value => $label)
                                     <option value="{{ $value }}" {{ $ticket->status === $value ? 'selected' : '' }}>
                                         {{ $label }}
@@ -127,18 +118,12 @@
 
                         <!-- Impact -->
                         <div>
-                            <label for="impact" class="block text-sm font-medium text-gray-700 mb-2">
-                                Impact
-                            </label>
-                            <select 
-                                name="impact" 
-                                id="impact" 
-                                class="w-full rounded-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-sm"
-                            >
+                            <label for="impact" class="block text-sm font-medium text-gray-700 mb-2">Impact</label>
+                            <select name="impact" id="impact" class="w-full rounded-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-sm">
                                 <option value="">Geen impact toegewezen</option>
-                                <option value="low" {{ $ticket->impact === 'low' ? 'selected' : '' }}>Low impact</option>
+                                <option value="low"    {{ $ticket->impact === 'low'    ? 'selected' : '' }}>Low impact</option>
                                 <option value="medium" {{ $ticket->impact === 'medium' ? 'selected' : '' }}>Medium impact</option>
-                                <option value="high" {{ $ticket->impact === 'high' ? 'selected' : '' }}>High impact</option>
+                                <option value="high"   {{ $ticket->impact === 'high'   ? 'selected' : '' }}>High impact</option>
                             </select>
                             @error('impact')
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -147,21 +132,10 @@
 
                         <!-- Labels -->
                         <div>
-                            <label for="labels" class="block text-sm font-medium text-gray-700 mb-2">
-                                Labels
-                            </label>
-                            <select 
-                                name="labels[]" 
-                                id="labels" 
-                                multiple
-                                class="w-full rounded-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-sm"
-                                style="min-height: 120px;"
-                            >
+                            <label for="labels" class="block text-sm font-medium text-gray-700 mb-2">Labels</label>
+                            <select name="labels[]" id="labels" multiple class="w-full rounded-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-sm" style="min-height: 120px;">
                                 @foreach($allLabels as $label)
-                                    <option 
-                                        value="{{ $label->id }}" 
-                                        {{ $ticket->labels->contains($label->id) ? 'selected' : '' }}
-                                    >
+                                    <option value="{{ $label->id }}" {{ $ticket->labels->contains($label->id) ? 'selected' : '' }}>
                                         {{ $label->name }}
                                     </option>
                                 @endforeach
@@ -172,33 +146,16 @@
                             @enderror
                         </div>
 
-                        <!-- Toegewezen aan -->
+                        <!-- Toegewezen aan (readonly) -->
                         <div>
-                            <label for="assigned_to" class="block text-sm font-medium text-gray-700 mb-2">
-                                Toegewezen aan
-                            </label>
-                            <select 
-                                name="assigned_to" 
-                                id="assigned_to" 
-                                class="w-full rounded-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-sm"
-                            >
-                                <option value="">Niet toegewezen</option>
-                                @foreach(\App\Models\User::all() as $user)
-                                    <option value="{{ $user->id }}" {{ $ticket->assigned_to === $user->id ? 'selected' : '' }}>
-                                        {{ $user->name }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            @error('assigned_to')
-                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Toegewezen aan</label>
+                            <div class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600">
+                                {{ $ticket->agent?->name ?? 'Niet toegewezen' }}
+                            </div>
+                            <p class="mt-1.5 text-xs text-gray-400">Toewijzen via het Agents Board (drag & drop)</p>
                         </div>
 
-                        <!-- Submit button -->
-                        <button 
-                            type="submit"
-                            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors text-sm"
-                        >
+                        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors text-sm">
                             Wijzigingen opslaan
                         </button>
                     </form>
@@ -232,7 +189,7 @@
                 <!-- Ticket tijdlijn -->
                 <div class="bg-white rounded-lg border border-gray-200 p-6">
                     <h3 class="text-base font-semibold text-gray-900 mb-4">Tijdlijn</h3>
-                    
+
                     <div class="space-y-3 mb-4">
                         <div>
                             <div class="text-sm font-medium text-gray-500 mb-1">Aangemaakt op</div>
@@ -250,15 +207,14 @@
                         @endif
                     </div>
 
-                    <!-- Wijzigingshistoriek -->
                     @php
                         $activities = $ticket->activities()->latest()->get();
                         $statusLabels = [
-                            'new' => 'Nieuw',
+                            'new'         => 'Nieuw',
                             'in_progress' => 'In behandeling',
-                            'on_hold' => 'On hold',
-                            'to_close' => 'Te sluiten',
-                            'closed' => 'Gesloten',
+                            'on_hold'     => 'On hold',
+                            'to_close'    => 'Te sluiten',
+                            'closed'      => 'Gesloten',
                         ];
                     @endphp
 
@@ -269,12 +225,12 @@
                                 @foreach($activities as $activity)
                                     @php
                                         $changes = $activity->properties['attributes'] ?? [];
-                                        $old = $activity->properties['old'] ?? [];
+                                        $old     = $activity->properties['old'] ?? [];
                                     @endphp
                                     @foreach($changes as $field => $newValue)
                                         @php
                                             $oldValue = $old[$field] ?? null;
-                                            $who = $activity->causer?->name ?? 'Systeem';
+                                            $who  = $activity->causer?->name ?? 'Systeem';
                                             $when = $activity->created_at->format('d-m-Y H:i');
 
                                             if ($field === 'status') {

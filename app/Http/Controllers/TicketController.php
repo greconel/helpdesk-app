@@ -7,6 +7,8 @@ use App\Models\Customer;
 use App\Models\Label;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Events\TicketCreated;   
+use App\Events\TicketAssigned; 
 
 class TicketController extends Controller
 {
@@ -16,51 +18,51 @@ class TicketController extends Controller
     }
 
     public function store(Request $request)
-{
-    $validated = $request->validate([
-        'name' => 'required|string|max:255',
-        'email' => 'required|email|max:255',
-        'subject' => 'required|string|max:255',
-        'description' => 'required|string',
-    ], [
-        'name.required' => 'Naam is verplicht',
-        'email.required' => 'E-mailadres is verplicht',
-        'email.email' => 'Voer een geldig e-mailadres in',
-        'subject.required' => 'Onderwerp is verplicht',
-        'description.required' => 'Beschrijving is verplicht',
-    ]);
-
-    DB::beginTransaction();
-    try {
-        $customer = Customer::firstOrCreate(
-            ['email' => $validated['email']],
-            ['name' => $validated['name']]
-        );
-
-        $ticketNumber = $this->generateTicketNumber();
-
-        $ticket = Ticket::create([
-            'ticket_number' => $ticketNumber,
-            'subject' => $validated['subject'],
-            'description' => $validated['description'],
-            'status' => 'new',
-            'impact' => null, // NIEUW: impact is null bij nieuwe tickets
-            'customer_id' => $customer->id,
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|max:255',
+            'subject' => 'required|string|max:255',
+            'description' => 'required|string',
+        ], [
+            'name.required' => 'Naam is verplicht',
+            'email.required' => 'E-mailadres is verplicht',
+            'email.email' => 'Voer een geldig e-mailadres in',
+            'subject.required' => 'Onderwerp is verplicht',
+            'description.required' => 'Beschrijving is verplicht',
         ]);
 
-        DB::commit();
+        DB::beginTransaction();
+        try {
+            $customer = Customer::firstOrCreate(
+                ['email' => $validated['email']],
+                ['name' => $validated['name']]
+            );
 
-        return redirect()
-            ->route('tickets.create')
-            ->with('success', "Uw ticket ({$ticketNumber}) is succesvol aangemaakt.");
+            $ticketNumber = $this->generateTicketNumber();
 
-    } catch (\Exception $e) {
-        DB::rollBack();
-        return back()
-            ->withInput()
-            ->with('error', 'Er is iets misgegaan. Probeer het opnieuw.');
+            $ticket = Ticket::create([
+                'ticket_number' => $ticketNumber,
+                'subject' => $validated['subject'],
+                'description' => $validated['description'],
+                'status' => 'new',
+                'impact' => null, // NIEUW: impact is null bij nieuwe tickets
+                'customer_id' => $customer->id,
+            ]);
+
+            DB::commit();
+            TicketCreated::dispatch($ticket); 
+            return redirect()
+                ->route('tickets.create')
+                ->with('success', "Uw ticket ({$ticketNumber}) is succesvol aangemaakt.");
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()
+                ->withInput()
+                ->with('error', 'Er is iets misgegaan. Probeer het opnieuw.');
+        }
     }
-}
 
     public function update(Request $request, Ticket $ticket)
     {
@@ -71,6 +73,8 @@ class TicketController extends Controller
             'assigned_to' => 'nullable|exists:users,id',
             'status' => 'nullable|in:new,in_progress,on_hold,to_close,closed',
         ]);
+
+        $wasUnassigned = !$ticket->assigned_to;
 
         // Als er iemand wordt toegewezen EN de status is nog 'new', zet dan naar 'in_progress'
         if (isset($validated['assigned_to']) && $validated['assigned_to'] && $ticket->status === 'new') {
@@ -97,6 +101,10 @@ class TicketController extends Controller
             $ticket->labels()->sync($validated['labels']);
         } else {
             $ticket->labels()->sync([]);
+        }
+
+        if ($wasUnassigned && $ticket->assigned_to) {
+            TicketAssigned::dispatch($ticket, $ticket->agent);
         }
 
         return back()->with('success', 'Ticket succesvol bijgewerkt.');
@@ -138,7 +146,6 @@ class TicketController extends Controller
                             ? $validated['assigned_to'] 
                             : $ticket->assigned_to;
 
-        // Alleen naar in_progress zetten als ticket nog NIEUW is en naar een persoon wordt gesleept
         if ($newAssignedTo && !$ticket->assigned_to && $ticket->status === 'new') {
             $newStatus = 'in_progress';
         }

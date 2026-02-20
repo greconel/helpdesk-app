@@ -11,6 +11,6 @@ class SendTicketAssignedToAgent
     public function handle(TicketAssigned $event): void
     {
         Mail::to($event->ticket->agent->email)
-            ->queue(new TicketAssignedMail($event->ticket));
+            ->send(new TicketAssignedMail($event->ticket));
     }
 }

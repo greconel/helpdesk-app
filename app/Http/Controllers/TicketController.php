@@ -74,7 +74,7 @@ class TicketController extends Controller
             'status' => 'nullable|in:new,in_progress,on_hold,to_close,closed',
         ]);
 
-        $wasUnassigned = !$ticket->assigned_to;
+        $previousAgent  = !$ticket->assigned_to;
 
         // Als er iemand wordt toegewezen EN de status is nog 'new', zet dan naar 'in_progress'
         if (isset($validated['assigned_to']) && $validated['assigned_to'] && $ticket->status === 'new') {
@@ -103,7 +103,7 @@ class TicketController extends Controller
             $ticket->labels()->sync([]);
         }
 
-        if ($wasUnassigned && $ticket->assigned_to) {
+        if ($ticket->assigned_to && $ticket->assigned_to != $previousAgent) {
             TicketAssigned::dispatch($ticket, $ticket->agent);
         }
 
@@ -142,6 +142,8 @@ class TicketController extends Controller
             'assigned_to' => 'nullable|exists:users,id',
         ]);
 
+        $previousAgent = $ticket->assigned_to; // ← toevoegen
+
         $newAssignedTo = array_key_exists('assigned_to', $validated) 
                             ? $validated['assigned_to'] 
                             : $ticket->assigned_to;
@@ -160,6 +162,11 @@ class TicketController extends Controller
                                 ? now()
                                 : ($newStatus !== 'closed' ? null : $ticket->closed_at),
         ]);
+
+        // ← toevoegen
+        if ($ticket->assigned_to && $ticket->assigned_to != $previousAgent) {
+            TicketAssigned::dispatch($ticket, $ticket->agent);
+        }
 
         return response()->json(['success' => true]);
     }

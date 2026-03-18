@@ -21,7 +21,6 @@ class Ticket extends Model
         'customer_id', 
         'assigned_to', 
         'closed_at',
-        'email_token'
 
     ];
 
@@ -72,17 +71,4 @@ class Ticket extends Model
         };
     }
 
-    protected static function boot(): void
-    {
-        parent::boot();
-
-        static::creating(function ($ticket) {
-            $ticket->email_token = \Illuminate\Support\Str::uuid();
-        });
-    }
-
-    public function messages()
-    {
-        return $this->hasMany(TicketMessage::class);
-    }
 }

@@ -45,10 +45,8 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
-    // Voeg deze methode toe onderaan in je User model
     public function assignedTickets(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
-        // We geven aan dat de vreemde sleutel in de tickets tabel 'assigned_to' is
         return $this->hasMany(Ticket::class, 'assigned_to');
     }
 }

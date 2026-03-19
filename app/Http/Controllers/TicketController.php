@@ -7,8 +7,6 @@ use App\Models\Customer;
 use App\Models\Label;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use App\Events\TicketCreated;
-use App\Events\TicketAssigned;
 
 class TicketController extends Controller
 {
@@ -51,7 +49,6 @@ class TicketController extends Controller
             ]);
 
             DB::commit();
-            TicketCreated::dispatch($ticket);
             return redirect()
                 ->route('tickets.create')
                 ->with('success', "Uw ticket ({$ticketNumber}) is succesvol aangemaakt.");
@@ -137,10 +134,6 @@ class TicketController extends Controller
                 ? now()
                 : ($newStatus !== 'closed' ? null : $ticket->closed_at),
         ]);
-
-        if ($ticket->assigned_to && $ticket->assigned_to != $previousAgent) {
-            TicketAssigned::dispatch($ticket, $ticket->agent);
-        }
 
         return response()->json(['success' => true]);
     }

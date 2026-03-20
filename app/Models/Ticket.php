@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Ticket extends Model
 {
@@ -45,6 +46,10 @@ class Ticket extends Model
     public function labels(): BelongsToMany
     {
         return $this->belongsToMany(Label::class);
+    }
+    public function timeLogs(): HasMany
+    {
+        return $this->hasMany(TimeLog::class);
     }
 
 }

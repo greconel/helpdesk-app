@@ -89,7 +89,7 @@ class TicketController extends Controller
 
     public function show(Ticket $ticket)
     {
-        $ticket->load(['customer', 'agent', 'labels']);
+        $ticket->load(['customer', 'agent', 'labels', 'timeLogs.user']);
         $allLabels = Label::orderBy('name')->get();
         return view('tickets.show', compact('ticket', 'allLabels'));
     }

@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\TicketController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\TimeLogController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -26,4 +27,6 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/tickets/{ticket}', [TicketController::class, 'show'])->name('tickets.show');
     Route::patch('/tickets/{ticket}', [TicketController::class, 'update'])->name('tickets.update');
     Route::patch('/tickets/{ticket}/move', [TicketController::class, 'move'])->name('tickets.move');
+    Route::post('/tickets/{ticket}/timelogs', [TimeLogController::class, 'store'])
+    ->name('timelogs.store');
 });

@@ -34,5 +34,9 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
+    'motion' => [
+        'key'          => env('MOTION_API_KEY'),
+        'workspace_id' => env('MOTION_WORKSPACE_ID'),
+    ],
 
 ];

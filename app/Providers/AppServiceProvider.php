@@ -8,6 +8,8 @@ use App\Listeners\SendTicketConfirmationToCustomer;
 use App\Listeners\SendTicketAssignedToAgent;
 use Illuminate\Support\Facades\Event;  // ← deze ontbreekt
 use Illuminate\Support\ServiceProvider;
+use App\Models\Ticket;
+use App\Observers\TicketObserver;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -15,5 +17,6 @@ class AppServiceProvider extends ServiceProvider
     {
         Event::listen(TicketCreated::class, SendTicketConfirmationToCustomer::class);
         Event::listen(TicketAssigned::class, SendTicketAssignedToAgent::class);
+        Ticket::observe(TicketObserver::class);
     }
 }

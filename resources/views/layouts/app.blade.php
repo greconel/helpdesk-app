@@ -39,6 +39,16 @@
                     </svg>
                     <span>Agents Board</span>
                 </a>
+                <!-- Ticket aanmaken (agent) -->
+                <a href="{{ route('tickets.agent.create') }}"
+                class="flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors
+                        {{ request()->routeIs('tickets.agent.create') ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50' }}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 4v16m8-8H4"/>
+                    </svg>
+                    <span>Ticket aanmaken</span>
+                </a>
             </nav>
 
             <!-- User section onderaan - blijft vast -->

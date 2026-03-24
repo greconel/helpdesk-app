@@ -5,11 +5,14 @@ namespace App\Http\Controllers;
 use App\Models\Ticket;
 use App\Models\Customer;
 use App\Models\Label;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class TicketController extends Controller
 {
+    // ── Bestaande methodes (ongewijzigd) ─────────────────────────────────────
+
     public function create()
     {
         return view('tickets.create');
@@ -18,15 +21,15 @@ class TicketController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|max:255',
-            'subject' => 'required|string|max:255',
+            'name'        => 'required|string|max:255',
+            'email'       => 'required|email|max:255',
+            'subject'     => 'required|string|max:255',
             'description' => 'required|string',
         ], [
-            'name.required' => 'Naam is verplicht',
-            'email.required' => 'E-mailadres is verplicht',
-            'email.email' => 'Voer een geldig e-mailadres in',
-            'subject.required' => 'Onderwerp is verplicht',
+            'name.required'        => 'Naam is verplicht',
+            'email.required'       => 'E-mailadres is verplicht',
+            'email.email'          => 'Voer een geldig e-mailadres in',
+            'subject.required'     => 'Onderwerp is verplicht',
             'description.required' => 'Beschrijving is verplicht',
         ]);
 
@@ -34,18 +37,18 @@ class TicketController extends Controller
         try {
             $customer = Customer::firstOrCreate(
                 ['email' => $validated['email']],
-                ['name' => $validated['name']]
+                ['name'  => $validated['name']]
             );
 
             $ticketNumber = $this->generateTicketNumber();
 
             $ticket = Ticket::create([
                 'ticket_number' => $ticketNumber,
-                'subject' => $validated['subject'],
-                'description' => $validated['description'],
-                'status' => 'new',
-                'impact' => null,
-                'customer_id' => $customer->id,
+                'subject'       => $validated['subject'],
+                'description'   => $validated['description'],
+                'status'        => 'new',
+                'impact'        => null,
+                'customer_id'   => $customer->id,
             ]);
 
             DB::commit();
@@ -55,24 +58,123 @@ class TicketController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()
-                ->withInput()
-                ->with('error', 'Er is iets misgegaan. Probeer het opnieuw.');
+            return back()->withInput()->with('error', 'Er is iets misgegaan. Probeer het opnieuw.');
         }
     }
+
+    // ── Nieuwe methodes ───────────────────────────────────────────────────────
+
+    /**
+     * Formulier voor agents om zelf een ticket aan te maken.
+     */
+    public function agentCreate()
+    {
+        $labels = Label::orderBy('name')->get();
+        $agents = User::orderBy('name')->get();
+
+        return view('tickets.agent-create', compact('labels', 'agents'));
+    }
+
+    /**
+     * Sla het agent-ticket op.
+     */
+    public function agentStore(Request $request)
+    {
+        $validated = $request->validate([
+            'customer_mode'   => 'required|in:existing,new',
+            'customer_id'     => 'required_if:customer_mode,existing|nullable|exists:customers,id',
+            'customer_name'   => 'required_if:customer_mode,new|nullable|string|max:255',
+            'customer_email'  => 'required_if:customer_mode,new|nullable|email|max:255',
+            'customer_phone'  => 'nullable|string|max:50',
+            'subject'         => 'required|string|max:255',
+            'description'     => 'required|string',
+            'impact'          => 'nullable|in:low,medium,high',
+            'assigned_to'     => 'nullable|exists:users,id',
+            'labels'          => 'array',
+            'labels.*'        => 'exists:labels,id',
+        ], [
+            'customer_id.required_if'    => 'Selecteer een bestaande klant.',
+            'customer_name.required_if'  => 'Naam is verplicht voor een nieuwe klant.',
+            'customer_email.required_if' => 'E-mail is verplicht voor een nieuwe klant.',
+            'subject.required'           => 'Onderwerp is verplicht.',
+            'description.required'       => 'Beschrijving is verplicht.',
+        ]);
+
+        DB::beginTransaction();
+        try {
+            // Klant ophalen of aanmaken
+            if ($validated['customer_mode'] === 'existing') {
+                $customer = Customer::findOrFail($validated['customer_id']);
+            } else {
+                $customer = Customer::firstOrCreate(
+                    ['email' => $validated['customer_email']],
+                    [
+                        'name'  => $validated['customer_name'],
+                        'phone' => $validated['customer_phone'] ?? null,
+                    ]
+                );
+            }
+
+            // Status bepalen op basis van toewijzing
+            $status = $validated['assigned_to'] ? 'in_progress' : 'new';
+
+            $ticket = Ticket::create([
+                'ticket_number' => $this->generateTicketNumber(),
+                'subject'       => $validated['subject'],
+                'description'   => $validated['description'],
+                'status'        => $status,
+                'impact'        => $validated['impact'] ?? null,
+                'customer_id'   => $customer->id,
+                'assigned_to'   => $validated['assigned_to'] ?? null,
+            ]);
+
+            // Labels koppelen
+            if (!empty($validated['labels'])) {
+                $ticket->labels()->sync($validated['labels']);
+            }
+
+            DB::commit();
+
+            return redirect()
+                ->route('tickets.show', $ticket)
+                ->with('success', "Ticket {$ticket->ticket_number} is succesvol aangemaakt.");
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->withInput()->with('error', 'Er is iets misgegaan. Probeer het opnieuw.');
+        }
+    }
+
+    /**
+     * Zoek klanten op naam of e-mail (AJAX).
+     */
+    public function searchCustomers(Request $request)
+    {
+        $query = $request->get('q', '');
+
+        $customers = Customer::where('name', 'like', "%{$query}%")
+            ->orWhere('email', 'like', "%{$query}%")
+            ->orderBy('name')
+            ->limit(10)
+            ->get(['id', 'name', 'email', 'phone']);
+
+        return response()->json($customers);
+    }
+
+    // ── Bestaande methodes (ongewijzigd) ─────────────────────────────────────
 
     public function update(Request $request, Ticket $ticket)
     {
         $validated = $request->validate([
-            'impact' => 'nullable|in:low,medium,high',
-            'labels' => 'array',
-            'labels.*' => 'exists:labels,id',
-            'status' => 'nullable|in:new,in_progress,on_hold,to_close,closed',
+            'impact'    => 'nullable|in:low,medium,high',
+            'labels'    => 'array',
+            'labels.*'  => 'exists:labels,id',
+            'status'    => 'nullable|in:new,in_progress,on_hold,to_close,closed',
         ]);
 
         $ticket->update([
-            'impact'  => $validated['impact'] ?? null,
-            'status'  => $validated['status'] ?? $ticket->status,
+            'impact'    => $validated['impact'] ?? null,
+            'status'    => $validated['status'] ?? $ticket->status,
             'closed_at' => ($validated['status'] === 'closed' && $ticket->status !== 'closed')
                 ? now()
                 : ($validated['status'] !== 'closed' ? null : $ticket->closed_at),
@@ -103,7 +205,7 @@ class TicketController extends Controller
         }
 
         $lastNumber = (int) str_replace('#', '', $lastTicket->ticket_number);
-        $newNumber = $lastNumber + 1;
+        $newNumber  = $lastNumber + 1;
 
         return '#' . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
     }

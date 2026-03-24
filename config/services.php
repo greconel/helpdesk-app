@@ -38,5 +38,10 @@ return [
         'key'          => env('MOTION_API_KEY'),
         'workspace_id' => env('MOTION_WORKSPACE_ID'),
     ],
-
+    'microsoft' => [
+        'tenant_id'     => env('MICROSOFT_TENANT_ID'),
+        'client_id'     => env('MICROSOFT_CLIENT_ID'),
+        'client_secret' => env('MICROSOFT_CLIENT_SECRET'),
+        'mailbox'       => env('MICROSOFT_MAILBOX'),
+    ],
 ];

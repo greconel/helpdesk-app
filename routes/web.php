@@ -15,18 +15,21 @@ Route::post('/tickets', [TicketController::class, 'store'])->name('tickets.store
 require __DIR__.'/auth.php';
 
 Route::middleware(['auth'])->group(function () {
-    // Breeze profile routes
     Route::get('/profile', [App\Http\Controllers\ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [App\Http\Controllers\ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [App\Http\Controllers\ProfileController::class, 'destroy'])->name('profile.destroy');
 
-    // Jouw eigen routes
     Route::get('/overview', [DashboardController::class, 'overview'])->name('overview');
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/agents', [DashboardController::class, 'agentsBoard'])->name('agents.board');
+
+    // Agent ticket aanmaken — VOOR de {ticket} wildcard route!
+    Route::get('/tickets/agent/create', [TicketController::class, 'agentCreate'])->name('tickets.agent.create');
+    Route::post('/tickets/agent', [TicketController::class, 'agentStore'])->name('tickets.agent.store');
+    Route::get('/api/customers/search', [TicketController::class, 'searchCustomers'])->name('customers.search');
+
     Route::get('/tickets/{ticket}', [TicketController::class, 'show'])->name('tickets.show');
     Route::patch('/tickets/{ticket}', [TicketController::class, 'update'])->name('tickets.update');
     Route::patch('/tickets/{ticket}/move', [TicketController::class, 'move'])->name('tickets.move');
-    Route::post('/tickets/{ticket}/timelogs', [TimeLogController::class, 'store'])
-    ->name('timelogs.store');
+    Route::post('/tickets/{ticket}/timelogs', [TimeLogController::class, 'store'])->name('timelogs.store');
 });

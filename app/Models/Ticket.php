@@ -22,6 +22,8 @@ class Ticket extends Model
         'customer_id', 
         'assigned_to', 
         'closed_at',
+        'source',                   
+        'last_inbound_message_id',
 
     ];
 
@@ -50,6 +52,10 @@ class Ticket extends Model
     public function timeLogs(): HasMany
     {
         return $this->hasMany(TimeLog::class);
+    }
+    public function messages(): HasMany
+    {
+        return $this->hasMany(TicketMessage::class)->orderBy('sent_at');
     }
 
 }

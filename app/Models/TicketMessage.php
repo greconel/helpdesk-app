@@ -17,5 +17,5 @@ class TicketMessage extends Model
 
     public function ticket(): BelongsTo { return $this->belongsTo(Ticket::class); }
     public function user(): BelongsTo { return $this->belongsTo(User::class); }
-    public function attachments(): HasMany { return $this->hasMany(TicketAttachment::class); }
+
 }

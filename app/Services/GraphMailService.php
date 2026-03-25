@@ -38,7 +38,7 @@ class GraphMailService
             ->get("{$this->baseUrl}/users/{$mailbox}/mailFolders/inbox/messages", [
                 '$top'     => $top,
                 '$filter'  => 'isRead eq false',
-                '$select'  => 'id,subject,from,body,receivedDateTime,internetMessageId,conversationId,isRead,hasAttachments',
+                '$select'  => 'id,subject,from,body,receivedDateTime,internetMessageId,conversationId,isRead',
                 '$orderby' => 'receivedDateTime asc',
             ]);
 
@@ -74,15 +74,6 @@ class GraphMailService
             $headers[strtolower($h['name'])] = $h['value'];
         }
         return $headers;
-    }
-
-    public function getAttachments(string $messageId): array
-    {
-        $mailbox = config('services.microsoft.mailbox');
-        $response = Http::withToken($this->getToken())
-            ->get("{$this->baseUrl}/users/{$mailbox}/messages/{$messageId}/attachments");
-
-        return $response->successful() ? $response->json('value', []) : [];
     }
 
     public function markAsRead(string $messageId): void

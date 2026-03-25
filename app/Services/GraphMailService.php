@@ -38,7 +38,7 @@ class GraphMailService
             ->get("{$this->baseUrl}/users/{$mailbox}/mailFolders/inbox/messages", [
                 '$top'     => $top,
                 '$filter'  => 'isRead eq false',
-                '$select'  => 'id,subject,from,body,receivedDateTime,internetMessageId,conversationId,isRead',
+                '$select'  => 'id,subject,from,body,receivedDateTime,internetMessageId,conversationId,isRead,hasAttachments',
                 '$orderby' => 'receivedDateTime asc',
             ]);
 
@@ -76,6 +76,20 @@ class GraphMailService
         return $headers;
     }
 
+    public function getAttachments(string $messageId): array
+    {
+        $mailbox = config('services.microsoft.mailbox');
+        $response = Http::withToken($this->getToken())
+            ->get("{$this->baseUrl}/users/{$mailbox}/messages/{$messageId}/attachments");
+
+        if (!$response->successful()) {
+            Log::error('Graph getAttachments mislukt', ['body' => $response->body()]);
+            return [];
+        }
+
+        return $response->json('value', []);
+    }
+
     public function markAsRead(string $messageId): void
     {
         $mailbox = config('services.microsoft.mailbox');
@@ -96,5 +110,25 @@ class GraphMailService
             return false;
         }
         return true;
+    }
+    public function markAsUnread(string $messageId): void
+    {
+        $mailbox = config('services.microsoft.mailbox');
+        Http::withToken($this->getToken())
+            ->patch("{$this->baseUrl}/users/{$mailbox}/messages/{$messageId}", [
+                'isRead' => false,
+            ]);
+    }
+    public function getLatestMessages(int $top = 2): array
+    {
+        $mailbox = config('services.microsoft.mailbox');
+        $response = Http::withToken($this->getToken())
+            ->get("{$this->baseUrl}/users/{$mailbox}/mailFolders/inbox/messages", [
+                '$top'     => $top,
+                '$select'  => 'id,subject,receivedDateTime',
+                '$orderby' => 'receivedDateTime desc',
+            ]);
+
+        return $response->successful() ? $response->json('value', []) : [];
     }
 }

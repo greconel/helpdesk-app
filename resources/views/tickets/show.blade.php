@@ -82,7 +82,13 @@
 
                     <div class="border-t border-gray-200 pt-4 mt-4">
                         <div class="text-sm font-semibold text-gray-700 mb-2">Beschrijving</div>
-                        <div class="text-gray-900 whitespace-pre-wrap leading-relaxed">{{ $ticket->description }}</div>
+                        <div class="text-gray-900 leading-relaxed overflow-x-auto">
+                            @if($ticket->source === 'email')
+                                {!! $ticket->description !!}
+                            @else
+                                {!! nl2br(e($ticket->description)) !!}
+                            @endif
+                        </div>
                     </div>
                 </div>
 

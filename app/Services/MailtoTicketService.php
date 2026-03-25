@@ -37,9 +37,34 @@ class MailToTicketService
         $fromEmail       = data_get($msg, 'from.emailAddress.address');
         $fromName        = data_get($msg, 'from.emailAddress.name', $fromEmail);
         $bodyHtml        = data_get($msg, 'body.content');
+        $hasAttachments  = $msg['hasAttachments'] ?? false;
+        $hasInlineImages = str_contains($bodyHtml ?? '', 'cid:');
+
+        // Inline images verwerken
+        if ($hasAttachments || $hasInlineImages) {
+            $attachments = $this->graph->getAttachments($graphId);
+            foreach ($attachments as $attachment) {
+                if (!empty($attachment['isInline']) 
+                    && !empty($attachment['contentId']) 
+                    && !empty($attachment['contentBytes']) 
+                    && str_starts_with($attachment['contentType'] ?? '', 'image/')) {
+                    
+                    $contentId = $attachment['contentId'];
+                    $contentBytes = base64_decode($attachment['contentBytes']);
+                    
+                    $filename = uniqid('inline_', true) . '_' . preg_replace('/[^a-zA-Z0-9_\.-]/', '', $attachment['name'] ?? 'image.png');
+                    $path = 'attachments/' . $filename;
+                    
+                    Storage::disk('public')->put($path, $contentBytes);
+                    $url = '/storage/' . $path; // Gebruik relatief pad voor de browser
+                    
+                    $bodyHtml = str_replace("cid:$contentId", $url, $bodyHtml);
+                }
+            }
+        }
+
         $bodyText        = strip_tags($bodyHtml ?? '');
         $receivedAt      = $msg['receivedDateTime'] ?? now()->toISOString();
-        $hasAttachments  = $msg['hasAttachments'] ?? false;
 
         // Duplicate check
         if (TicketMessage::where('message_id', $graphId)->exists()) {
@@ -63,7 +88,7 @@ class MailToTicketService
             $ticket = Ticket::create([
                 'ticket_number'            => $this->generateTicketNumber(),
                 'subject'                  => $subject,
-                'description'              => $bodyText,
+                'description'              => $bodyHtml,
                 'status'                   => 'new',
                 'customer_id'              => $customer->id,
                 'source'                   => 'email',
@@ -92,10 +117,6 @@ class MailToTicketService
             'sent_at'            => $receivedAt,
         ]);
 
-        // Bijlagen verwerken
-        if ($hasAttachments) {
-            $this->processAttachments($graphId, $ticket->id, $ticketMessage->id);
-        }
     }
 
     private function findExistingTicket(string $inReplyTo = null): ?Ticket
@@ -113,31 +134,6 @@ class MailToTicketService
         return Ticket::where('last_inbound_message_id', $inReplyTo)->first();
     }
 
-    private function processAttachments(string $graphId, int $ticketId, int $messageId): void
-    {
-        $attachments = $this->graph->getAttachments($graphId);
-
-        foreach ($attachments as $att) {
-            if (($att['@odata.type'] ?? '') !== '#microsoft.graph.fileAttachment') continue;
-
-            $filename  = $att['name'] ?? 'bijlage';
-            $mimeType  = $att['contentType'] ?? 'application/octet-stream';
-            $content   = base64_decode($att['contentBytes'] ?? '');
-            $path      = "tickets/{$ticketId}/attachments/" . uniqid() . '_' . $filename;
-
-            Storage::disk('local')->put($path, $content);
-
-            TicketAttachment::create([
-                'ticket_id'         => $ticketId,
-                'ticket_message_id' => $messageId,
-                'filename'          => $filename,
-                'mime_type'         => $mimeType,
-                'size'              => strlen($content),
-                'disk'              => 'local',
-                'path'              => $path,
-            ]);
-        }
-    }
 
     private function generateTicketNumber(): string
     {

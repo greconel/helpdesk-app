@@ -1,9 +1,9 @@
 <?php
 namespace App\Services;
 
+use App\Events\TicketCreated;
 use App\Models\Customer;
 use App\Models\Ticket;
-use App\Models\TicketAttachment;
 use App\Models\TicketMessage;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -40,100 +40,95 @@ class MailToTicketService
         $hasAttachments  = $msg['hasAttachments'] ?? false;
         $hasInlineImages = str_contains($bodyHtml ?? '', 'cid:');
 
-        // Inline images verwerken
         if ($hasAttachments || $hasInlineImages) {
             $attachments = $this->graph->getAttachments($graphId);
             foreach ($attachments as $attachment) {
-                if (!empty($attachment['isInline']) 
-                    && !empty($attachment['contentId']) 
-                    && !empty($attachment['contentBytes']) 
+                if (!empty($attachment['isInline'])
+                    && !empty($attachment['contentId'])
+                    && !empty($attachment['contentBytes'])
                     && str_starts_with($attachment['contentType'] ?? '', 'image/')) {
-                    
-                    $contentId = $attachment['contentId'];
+
+                    $contentId    = $attachment['contentId'];
                     $contentBytes = base64_decode($attachment['contentBytes']);
-                    
-                    $filename = uniqid('inline_', true) . '_' . preg_replace('/[^a-zA-Z0-9_\.-]/', '', $attachment['name'] ?? 'image.png');
-                    $path = 'attachments/' . $filename;
-                    
+                    $filename     = uniqid('inline_', true) . '_' . preg_replace('/[^a-zA-Z0-9_\.-]/', '', $attachment['name'] ?? 'image.png');
+                    $path         = 'attachments/' . $filename;
+
                     Storage::disk('public')->put($path, $contentBytes);
-                    $url = '/storage/' . $path; // Gebruik relatief pad voor de browser
-                    
+                    $url      = '/storage/' . $path;
                     $bodyHtml = str_replace("cid:$contentId", $url, $bodyHtml);
                 }
             }
         }
 
-        $bodyText        = strip_tags($bodyHtml ?? '');
-        $receivedAt      = $msg['receivedDateTime'] ?? now()->toISOString();
+        $bodyText   = strip_tags($bodyHtml ?? '');
+        $receivedAt = $msg['receivedDateTime'] ?? now()->toISOString();
 
-        // Duplicate check
         if (TicketMessage::where('message_id', $graphId)->exists()) {
             return;
         }
 
-        // Headers ophalen voor In-Reply-To
-        $headers    = $this->graph->getMessageHeaders($graphId);
-        $inReplyTo  = $headers['in-reply-to'] ?? null;
+        $headers   = $this->graph->getMessageHeaders($graphId);
+        $inReplyTo = $headers['in-reply-to'] ?? null;
 
-        // Bestaand ticket zoeken via In-Reply-To
         $ticket = $this->findExistingTicket($inReplyTo);
 
+        $isNewTicket = false;
+
         if (!$ticket) {
-            // Nieuw ticket aanmaken
+            $isNewTicket = true;
+
             $customer = Customer::firstOrCreate(
                 ['email' => $fromEmail],
                 ['name'  => $fromName]
             );
 
             $ticket = Ticket::create([
-                'ticket_number'            => $this->generateTicketNumber(),
-                'subject'                  => $subject,
-                'description'              => $bodyHtml,
-                'status'                   => 'new',
-                'customer_id'              => $customer->id,
-                'source'                   => 'email',
-                'last_inbound_message_id'  => $internetMsgId,
+                'ticket_number'           => $this->generateTicketNumber(),
+                'subject'                 => $subject,
+                'description'             => $bodyHtml,
+                'status'                  => 'new',
+                'customer_id'             => $customer->id,
+                'source'                  => 'email',
+                'last_inbound_message_id' => $internetMsgId,
             ]);
         } else {
-            // Bestaand ticket updaten
             $ticket->update([
                 'last_inbound_message_id' => $internetMsgId,
                 'status' => $ticket->status === 'closed' ? 'new' : $ticket->status,
             ]);
         }
 
-        // Bericht opslaan
-        $ticketMessage = TicketMessage::create([
-            'ticket_id'          => $ticket->id,
-            'from_email'         => $fromEmail,
-            'from_name'          => $fromName,
-            'direction'          => 'inbound',
-            'subject'            => $subject,
-            'body_html'          => $bodyHtml,
-            'body_text'          => $bodyText,
-            'message_id'         => $graphId,
-            'in_reply_to'        => $inReplyTo,
-            'internet_message_id'=> $internetMsgId,
-            'sent_at'            => $receivedAt,
+        TicketMessage::create([
+            'ticket_id'           => $ticket->id,
+            'from_email'          => $fromEmail,
+            'from_name'           => $fromName,
+            'direction'           => 'inbound',
+            'subject'             => $subject,
+            'body_html'           => $bodyHtml,
+            'body_text'           => $bodyText,
+            'message_id'          => $graphId,
+            'in_reply_to'         => $inReplyTo,
+            'internet_message_id' => $internetMsgId,
+            'sent_at'             => $receivedAt,
         ]);
 
+        if ($isNewTicket) {
+            event(new TicketCreated($ticket));
+        }
     }
 
-    private function findExistingTicket(string $inReplyTo = null): ?Ticket
+    private function findExistingTicket(?string $inReplyTo): ?Ticket
     {
         if (!$inReplyTo) return null;
 
-        // Zoek op internet_message_id van eerder gestuurde outbound berichten
         $msg = TicketMessage::where('internet_message_id', $inReplyTo)
             ->orWhere('internet_message_id', trim($inReplyTo, '<>'))
             ->first();
 
         if ($msg) return $msg->ticket;
 
-        // Fallback: zoek op last_inbound_message_id
         return Ticket::where('last_inbound_message_id', $inReplyTo)->first();
     }
-
 
     private function generateTicketNumber(): string
     {

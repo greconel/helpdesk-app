@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\TicketCreated;
 use App\Models\Ticket;
 use App\Models\Customer;
 use App\Models\Label;
@@ -11,8 +12,6 @@ use Illuminate\Support\Facades\DB;
 
 class TicketController extends Controller
 {
-    // ── Bestaande methodes (ongewijzigd) ─────────────────────────────────────
-
     public function create()
     {
         return view('tickets.create');
@@ -40,10 +39,8 @@ class TicketController extends Controller
                 ['name'  => $validated['name']]
             );
 
-            $ticketNumber = $this->generateTicketNumber();
-
             $ticket = Ticket::create([
-                'ticket_number' => $ticketNumber,
+                'ticket_number' => $this->generateTicketNumber(),
                 'subject'       => $validated['subject'],
                 'description'   => $validated['description'],
                 'status'        => 'new',
@@ -51,10 +48,13 @@ class TicketController extends Controller
                 'customer_id'   => $customer->id,
             ]);
 
+            event(new TicketCreated($ticket));
+
             DB::commit();
+
             return redirect()
                 ->route('tickets.create')
-                ->with('success', "Uw ticket ({$ticketNumber}) is succesvol aangemaakt.");
+                ->with('success', "Uw ticket ({$ticket->ticket_number}) is succesvol aangemaakt.");
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -62,11 +62,6 @@ class TicketController extends Controller
         }
     }
 
-    // ── Nieuwe methodes ───────────────────────────────────────────────────────
-
-    /**
-     * Formulier voor agents om zelf een ticket aan te maken.
-     */
     public function agentCreate()
     {
         $labels = Label::orderBy('name')->get();
@@ -75,9 +70,6 @@ class TicketController extends Controller
         return view('tickets.agent-create', compact('labels', 'agents'));
     }
 
-    /**
-     * Sla het agent-ticket op.
-     */
     public function agentStore(Request $request)
     {
         $validated = $request->validate([
@@ -102,7 +94,6 @@ class TicketController extends Controller
 
         DB::beginTransaction();
         try {
-            // Klant ophalen of aanmaken
             if ($validated['customer_mode'] === 'existing') {
                 $customer = Customer::findOrFail($validated['customer_id']);
             } else {
@@ -115,7 +106,6 @@ class TicketController extends Controller
                 );
             }
 
-            // Status bepalen op basis van toewijzing
             $status = $validated['assigned_to'] ? 'in_progress' : 'new';
 
             $ticket = Ticket::create([
@@ -128,10 +118,11 @@ class TicketController extends Controller
                 'assigned_to'   => $validated['assigned_to'] ?? null,
             ]);
 
-            // Labels koppelen
             if (!empty($validated['labels'])) {
                 $ticket->labels()->sync($validated['labels']);
             }
+
+            event(new TicketCreated($ticket));
 
             DB::commit();
 
@@ -145,9 +136,6 @@ class TicketController extends Controller
         }
     }
 
-    /**
-     * Zoek klanten op naam of e-mail (AJAX).
-     */
     public function searchCustomers(Request $request)
     {
         $query = $request->get('q', '');
@@ -160,8 +148,6 @@ class TicketController extends Controller
 
         return response()->json($customers);
     }
-
-    // ── Bestaande methodes (ongewijzigd) ─────────────────────────────────────
 
     public function update(Request $request, Ticket $ticket)
     {
@@ -196,28 +182,12 @@ class TicketController extends Controller
         return view('tickets.show', compact('ticket', 'allLabels'));
     }
 
-    private function generateTicketNumber(): string
-    {
-        $lastTicket = Ticket::orderBy('id', 'desc')->first();
-
-        if (!$lastTicket) {
-            return '#0001';
-        }
-
-        $lastNumber = (int) str_replace('#', '', $lastTicket->ticket_number);
-        $newNumber  = $lastNumber + 1;
-
-        return '#' . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
-    }
-
     public function move(Request $request, Ticket $ticket)
     {
         $validated = $request->validate([
             'status'      => 'nullable|in:new,in_progress,on_hold,to_close,closed',
             'assigned_to' => 'nullable|exists:users,id',
         ]);
-
-        $previousAgent = $ticket->assigned_to;
 
         $newAssignedTo = array_key_exists('assigned_to', $validated)
             ? $validated['assigned_to']
@@ -238,5 +208,19 @@ class TicketController extends Controller
         ]);
 
         return response()->json(['success' => true]);
+    }
+
+    private function generateTicketNumber(): string
+    {
+        $lastTicket = Ticket::orderBy('id', 'desc')->first();
+
+        if (!$lastTicket) {
+            return '#0001';
+        }
+
+        $lastNumber = (int) str_replace('#', '', $lastTicket->ticket_number);
+        $newNumber  = $lastNumber + 1;
+
+        return '#' . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
     }
 }

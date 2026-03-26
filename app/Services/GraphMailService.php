@@ -9,7 +9,7 @@ class GraphMailService
     private string $baseUrl = 'https://graph.microsoft.com/v1.0';
     private ?string $token = null;
 
-    private function getToken(): string
+    public function getToken(): string
     {
         if ($this->token) return $this->token;
 

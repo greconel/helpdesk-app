@@ -47,9 +47,7 @@ class DatabaseSeeder extends Seeder
         $onderzoekLabel = Label::create(['name' => 'onderzoek']);
         $featureLabel = Label::create(['name' => 'feature request']);
         $nietVoorOnsLabel = Label::create(['name' => 'eigenlijk niet voor ons']);
-        $urgentLabel = Label::create(['name' => 'urgent']);
-        $documentatieLabel = Label::create(['name' => 'documentatie']);
-
+       
         // 3. Customers aanmaken - verschillende bedrijven en particulieren
         $customer1 = Customer::create([
             'name' => 'TechCorp BV',

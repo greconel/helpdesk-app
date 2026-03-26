@@ -271,19 +271,23 @@
                     </a>
                 </div>
 
-                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <div class="flex gap-3">
-                        <svg class="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
-                        <div class="text-xs text-blue-700 space-y-1">
-                            <p class="font-semibold">Automatisch ingesteld:</p>
-                            <p>• Uniek ticketnummer</p>
-                            <p>• Status: Nieuw (of In behandeling bij toewijzing)</p>
-                            <p>• Aanmaakdatum & tijdstip</p>
-                        </div>
+                {{-- Bevestigingsmail toggle --}}
+                <div class="flex items-center justify-between pt-2 border-t border-gray-100">
+                    <div>
+                        <label for="send_confirmation" class="text-sm font-medium text-gray-700">
+                            Bevestigingsmail versturen
+                        </label>
+                        <p class="text-xs text-gray-400 mt-0.5">Stuur een bevestiging naar de klant</p>
                     </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" 
+                            id="send_confirmation" 
+                            name="send_confirmation" 
+                            value="1" 
+                            checked
+                            class="sr-only peer">
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
                 </div>
 
             </div>

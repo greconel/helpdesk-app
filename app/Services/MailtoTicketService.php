@@ -70,7 +70,7 @@ class MailToTicketService
         $headers   = $this->graph->getMessageHeaders($graphId);
         $inReplyTo = $headers['in-reply-to'] ?? null;
 
-        $ticket = $this->findExistingTicket($inReplyTo);
+        $ticket = $this->findExistingTicket($inReplyTo, $subject);
 
         $isNewTicket = false;
 
@@ -117,17 +117,28 @@ class MailToTicketService
         }
     }
 
-    private function findExistingTicket(?string $inReplyTo): ?Ticket
+    private function findExistingTicket(?string $inReplyTo, string $subject): ?Ticket
     {
-        if (!$inReplyTo) return null;
+        // 1. Zoek op in-reply-to header
+        if ($inReplyTo) {
+            $msg = TicketMessage::where('internet_message_id', $inReplyTo)
+                ->orWhere('internet_message_id', trim($inReplyTo, '<>'))
+                ->first();
 
-        $msg = TicketMessage::where('internet_message_id', $inReplyTo)
-            ->orWhere('internet_message_id', trim($inReplyTo, '<>'))
-            ->first();
+            if ($msg) return $msg->ticket;
 
-        if ($msg) return $msg->ticket;
+            $ticket = Ticket::where('last_inbound_message_id', $inReplyTo)->first();
+            if ($ticket) return $ticket;
+        }
 
-        return Ticket::where('last_inbound_message_id', $inReplyTo)->first();
+        // 2. Odoo-stijl fallback: zoek op ticket nummer in het onderwerp (bijv. "[#0045]")
+        if (preg_match('/\[#(\d+)\]/', $subject, $matches)) {
+            $ticketNumber = '#' . str_pad($matches[1], 4, '0', STR_PAD_LEFT);
+            $ticket = Ticket::where('ticket_number', $ticketNumber)->first();
+            if ($ticket) return $ticket;
+        }
+
+        return null;
     }
 
     private function generateTicketNumber(): string

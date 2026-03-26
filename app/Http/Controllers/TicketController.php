@@ -73,17 +73,18 @@ class TicketController extends Controller
     public function agentStore(Request $request)
     {
         $validated = $request->validate([
-            'customer_mode'   => 'required|in:existing,new',
-            'customer_id'     => 'required_if:customer_mode,existing|nullable|exists:customers,id',
-            'customer_name'   => 'required_if:customer_mode,new|nullable|string|max:255',
-            'customer_email'  => 'required_if:customer_mode,new|nullable|email|max:255',
-            'customer_phone'  => 'nullable|string|max:50',
-            'subject'         => 'required|string|max:255',
-            'description'     => 'required|string',
-            'impact'          => 'nullable|in:low,medium,high',
-            'assigned_to'     => 'nullable|exists:users,id',
-            'labels'          => 'array',
-            'labels.*'        => 'exists:labels,id',
+            'customer_mode'      => 'required|in:existing,new',
+            'customer_id'        => 'required_if:customer_mode,existing|nullable|exists:customers,id',
+            'customer_name'      => 'required_if:customer_mode,new|nullable|string|max:255',
+            'customer_email'     => 'required_if:customer_mode,new|nullable|email|max:255',
+            'customer_phone'     => 'nullable|string|max:50',
+            'subject'            => 'required|string|max:255',
+            'description'        => 'required|string',
+            'impact'             => 'nullable|in:low,medium,high',
+            'assigned_to'        => 'nullable|exists:users,id',
+            'labels'             => 'array',
+            'labels.*'           => 'exists:labels,id',
+            'send_confirmation'  => 'nullable|boolean',
         ], [
             'customer_id.required_if'    => 'Selecteer een bestaande klant.',
             'customer_name.required_if'  => 'Naam is verplicht voor een nieuwe klant.',
@@ -122,7 +123,10 @@ class TicketController extends Controller
                 $ticket->labels()->sync($validated['labels']);
             }
 
-            event(new TicketCreated($ticket));
+            // Alleen event firen als bevestigingsmail gewenst is
+            if ($request->boolean('send_confirmation')) {
+                event(new TicketCreated($ticket));
+            }
 
             DB::commit();
 

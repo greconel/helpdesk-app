@@ -55,10 +55,8 @@ class SendTicketConfirmationToCustomer
             $sent = $this->graph->sendMail($payload);
 
             if ($sent) {
-                // Haal het verstuurde bericht op uit de Sent Items
-                // om de door Graph gegenereerde Message-ID te achterhalen
-                $internetMessageId = $this->getSentMessageId($ticket->ticket_number);
-
+                // We slaan het bericht direct op. Voor de betrouwbare threading bij antwoorden 
+                // vertrouwen we nu ook in Odoo-stijl op het ticketnummer in het onderwerp ("Re: [#001]").
                 TicketMessage::create([
                     'ticket_id'           => $ticket->id,
                     'user_id'             => null,
@@ -70,7 +68,7 @@ class SendTicketConfirmationToCustomer
                     'body_text'           => strip_tags($html),
                     'message_id'          => null,
                     'in_reply_to'         => null,
-                    'internet_message_id' => $internetMessageId,
+                    'internet_message_id' => null,
                     'sent_at'             => now(),
                 ]);
 
@@ -81,31 +79,5 @@ class SendTicketConfirmationToCustomer
                 'error' => $e->getMessage(),
             ]);
         }
-    }
-
-    private function getSentMessageId(string $ticketNumber): ?string
-    {
-        // Kort wachten zodat Graph de mail heeft opgeslagen in Sent Items
-        sleep(2);
-
-        $mailbox = config('services.microsoft.mailbox');
-        $token   = $this->graph->getAccessToken();
-
-        $response = \Illuminate\Support\Facades\Http::withToken($token)
-            ->get("https://graph.microsoft.com/v1.0/users/{$mailbox}/mailFolders/sentItems/messages", [
-                '$top'     => 1,
-                '$select'  => 'internetMessageId,subject',
-                '$orderby' => 'sentDateTime desc',
-                '$filter'  => "contains(subject, '{$ticketNumber}')",
-            ]);
-
-        if ($response->successful()) {
-            $messages = $response->json('value', []);
-            if (!empty($messages[0]['internetMessageId'])) {
-                return $messages[0]['internetMessageId'];
-            }
-        }
-
-        return null;
     }
 }

@@ -109,7 +109,7 @@ class MailToTicketService
             'message_id'          => $graphId,
             'in_reply_to'         => $inReplyTo,
             'internet_message_id' => $internetMsgId,
-            'sent_at'             => $receivedAt,
+            'sent_at' => \Carbon\Carbon::parse($receivedAt)->setTimezone('UTC'),
         ]);
 
         if ($isNewTicket) {

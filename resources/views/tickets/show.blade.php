@@ -28,6 +28,8 @@
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <!-- Main ticket info -->
             <div class="lg:col-span-2 space-y-6">
+
+                <!-- Ticket beschrijving -->
                 <div class="bg-white rounded-lg border border-gray-200 p-6">
                     <div class="flex items-start justify-between mb-4">
                         <div class="flex-1">
@@ -91,6 +93,120 @@
                         </div>
                     </div>
                 </div>
+
+                {{-- ═══════════════════════════════════════════════
+                     CHAT / COMMUNICATIE TIJDLIJN
+                ════════════════════════════════════════════════ --}}
+                <div class="bg-white rounded-lg border border-gray-200 p-6">
+                    <h3 class="text-base font-semibold text-gray-900 mb-5 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                        </svg>
+                        Communicatie
+                    </h3>
+
+                    {{-- Berichten tijdlijn --}}
+                    <div class="space-y-4 mb-6 max-h-[600px] overflow-y-auto pr-1" id="message-timeline">
+                        @forelse($ticket->messages as $msg)
+                            @if($msg->direction === 'outbound')
+                                {{-- Agent bericht (rechts / blauw) --}}
+                                <div class="flex gap-3 justify-end">
+                                    <div class="max-w-[85%]">
+                                        <div class="flex items-center gap-2 justify-end mb-1">
+                                            <span class="text-xs text-gray-400">
+                                                {{ $msg->sent_at?->setTimezone('Europe/Brussels')->format('d-m-Y H:i') }}
+                                            </span>
+                                            <span class="text-xs font-semibold text-blue-700">
+                                                {{ $msg->from_name ?? 'Agent' }}
+                                            </span>
+                                            <div class="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
+                                                <span class="text-xs font-bold text-white">
+                                                    {{ strtoupper(substr($msg->from_name ?? 'A', 0, 1)) }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div class="bg-blue-50 border border-blue-200 rounded-lg rounded-tr-sm px-4 py-3 text-sm text-gray-800 leading-relaxed">
+                                            {!! $msg->body_html !!}
+                                        </div>
+                                    </div>
+                                </div>
+                            @else
+                                {{-- Klant bericht (links / grijs) --}}
+                                <div class="flex gap-3">
+                                    <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0 mt-1">
+                                        <span class="text-xs font-bold text-gray-600">
+                                            {{ strtoupper(substr($ticket->customer->name, 0, 1)) }}
+                                        </span>
+                                    </div>
+                                    <div class="max-w-[85%]">
+                                        <div class="flex items-center gap-2 mb-1 flex-wrap">
+                                            <span class="text-xs font-semibold text-gray-700">
+                                                {{ $ticket->customer->name }}
+                                            </span>
+                                            <span class="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full border border-gray-200">
+                                                klant
+                                            </span>
+                                            <span class="text-xs text-gray-400">
+                                                {{ $msg->sent_at?->setTimezone('Europe/Brussels')->format('d-m-Y H:i') }}
+                                            </span>
+                                        </div>
+                                        <div class="bg-gray-50 border border-gray-200 rounded-lg rounded-tl-sm px-4 py-3 text-sm text-gray-800 leading-relaxed overflow-x-auto">
+                                            {!! $msg->body_html !!}
+                                        </div>
+                                    </div>
+                                </div>
+                            @endif
+                        @empty
+                            <div class="text-center py-10 text-gray-400 text-sm">
+                                <svg class="w-10 h-10 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                                </svg>
+                                <p>Nog geen berichten</p>
+                            </div>
+                        @endforelse
+                    </div>
+
+                    {{-- Antwoord formulier --}}
+                    <form action="{{ route('tickets.reply', $ticket) }}" method="POST" class="border-t border-gray-200 pt-4">
+                        @csrf
+                        <div class="flex items-start gap-3">
+                            <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0 mt-1">
+                                <span class="text-xs font-bold text-white">
+                                    {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
+                                </span>
+                            </div>
+                            <div class="flex-1">
+                                <textarea
+                                    name="body"
+                                    rows="3"
+                                    placeholder="Schrijf een bericht aan de klant..."
+                                    class="w-full rounded-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-sm resize-none"
+                                >{{ old('body') }}</textarea>
+                                @error('body')
+                                    <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                                @enderror
+                                <div class="flex items-center justify-between mt-2">
+                                    <p class="text-xs text-gray-400 flex items-center gap-1">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                                        </svg>
+                                        De klant ontvangt dit als e-mail
+                                    </p>
+                                    <button type="submit"
+                                        class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                                        </svg>
+                                        Verstuur
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                {{-- ═══════════════════════════════════════════════
+                     EINDE CHAT / COMMUNICATIE TIJDLIJN
+                ════════════════════════════════════════════════ --}}
 
                 {{-- Gelogde tijd overzicht --}}
                 @if($ticket->timeLogs->count() > 0)

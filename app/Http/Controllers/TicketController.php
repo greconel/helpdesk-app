@@ -70,75 +70,75 @@ class TicketController extends Controller
         return view('tickets.agent-create', compact('labels', 'agents'));
     }
 
-    public function agentStore(Request $request)
-    {
-        $validated = $request->validate([
-            'customer_mode'      => 'required|in:existing,new',
-            'customer_id'        => 'required_if:customer_mode,existing|nullable|exists:customers,id',
-            'customer_name'      => 'required_if:customer_mode,new|nullable|string|max:255',
-            'customer_email'     => 'required_if:customer_mode,new|nullable|email|max:255',
-            'customer_phone'     => 'nullable|string|max:50',
-            'subject'            => 'required|string|max:255',
-            'description'        => 'required|string',
-            'impact'             => 'nullable|in:low,medium,high',
-            'assigned_to'        => 'nullable|exists:users,id',
-            'labels'             => 'array',
-            'labels.*'           => 'exists:labels,id',
-            'send_confirmation'  => 'nullable|boolean',
-        ], [
-            'customer_id.required_if'    => 'Selecteer een bestaande klant.',
-            'customer_name.required_if'  => 'Naam is verplicht voor een nieuwe klant.',
-            'customer_email.required_if' => 'E-mail is verplicht voor een nieuwe klant.',
-            'subject.required'           => 'Onderwerp is verplicht.',
-            'description.required'       => 'Beschrijving is verplicht.',
+public function agentStore(Request $request)
+{
+    $validated = $request->validate([
+        'customer_mode'      => 'required|in:existing,new',
+        'customer_id'        => 'required_if:customer_mode,existing|nullable|exists:customers,id',
+        'customer_name'      => 'required_if:customer_mode,new|nullable|string|max:255',
+        'customer_email'     => 'required_if:customer_mode,new|nullable|email|max:255',
+        'customer_phone'     => 'nullable|string|max:50',
+        'subject'            => 'required|string|max:255',
+        'description'        => 'required|string',
+        'impact'             => 'nullable|in:low,medium,high',
+        'assigned_to'        => 'nullable|exists:users,id',
+        'labels'             => 'array',
+        'labels.*'           => 'exists:labels,id',
+        'send_confirmation'  => 'nullable|boolean',
+    ], [
+        'customer_id.required_if'    => 'Selecteer een bestaande klant.',
+        'customer_name.required_if'  => 'Naam is verplicht voor een nieuwe klant.',
+        'customer_email.required_if' => 'E-mail is verplicht voor een nieuwe klant.',
+        'subject.required'           => 'Onderwerp is verplicht.',
+        'description.required'       => 'Beschrijving is verplicht.',
+    ]);
+
+    DB::beginTransaction();
+    try {
+        if ($validated['customer_mode'] === 'existing') {
+            $customer = Customer::findOrFail($validated['customer_id']);
+        } else {
+            $customer = Customer::firstOrCreate(
+                ['email' => $validated['customer_email']],
+                [
+                    'name'  => $validated['customer_name'],
+                    'phone' => $validated['customer_phone'] ?? null,
+                ]
+            );
+        }
+
+        $status = $validated['assigned_to'] ? 'in_progress' : 'new';
+
+        $ticket = Ticket::create([
+            'ticket_number' => $this->generateTicketNumber(),
+            'subject'       => $validated['subject'],
+            'description'   => $validated['description'],
+            'status'        => $status,
+            'impact'        => $validated['impact'] ?? null,
+            'customer_id'   => $customer->id,
+            'assigned_to'   => $validated['assigned_to'] ?? null,
         ]);
 
-        DB::beginTransaction();
-        try {
-            if ($validated['customer_mode'] === 'existing') {
-                $customer = Customer::findOrFail($validated['customer_id']);
-            } else {
-                $customer = Customer::firstOrCreate(
-                    ['email' => $validated['customer_email']],
-                    [
-                        'name'  => $validated['customer_name'],
-                        'phone' => $validated['customer_phone'] ?? null,
-                    ]
-                );
-            }
-
-            $status = $validated['assigned_to'] ? 'in_progress' : 'new';
-
-            $ticket = Ticket::create([
-                'ticket_number' => $this->generateTicketNumber(),
-                'subject'       => $validated['subject'],
-                'description'   => $validated['description'],
-                'status'        => $status,
-                'impact'        => $validated['impact'] ?? null,
-                'customer_id'   => $customer->id,
-                'assigned_to'   => $validated['assigned_to'] ?? null,
-            ]);
-
-            if (!empty($validated['labels'])) {
-                $ticket->labels()->sync($validated['labels']);
-            }
-
-            // Alleen event firen als bevestigingsmail gewenst is
-            if ($request->boolean('send_confirmation')) {
-                event(new TicketCreated($ticket));
-            }
-
-            DB::commit();
-
-            return redirect()
-                ->route('tickets.show', $ticket)
-                ->with('success', "Ticket {$ticket->ticket_number} is succesvol aangemaakt.");
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return back()->withInput()->with('error', 'Er is iets misgegaan. Probeer het opnieuw.');
+        if (!empty($validated['labels'])) {
+            $ticket->labels()->sync($validated['labels']);
         }
+
+        // Alleen event firen als bevestigingsmail gewenst is
+        if ($request->boolean('send_confirmation')) {
+            event(new TicketCreated($ticket));
+        }
+
+        DB::commit();
+
+        return redirect()
+            ->route('tickets.show', $ticket)
+            ->with('success', "Ticket {$ticket->ticket_number} is succesvol aangemaakt.");
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return back()->withInput()->with('error', 'Er is iets misgegaan. Probeer het opnieuw.');
     }
+}
 
     public function searchCustomers(Request $request)
     {

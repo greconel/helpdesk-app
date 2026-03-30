@@ -32,4 +32,6 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('/tickets/{ticket}', [TicketController::class, 'update'])->name('tickets.update');
     Route::patch('/tickets/{ticket}/move', [TicketController::class, 'move'])->name('tickets.move');
     Route::post('/tickets/{ticket}/timelogs', [TimeLogController::class, 'store'])->name('timelogs.store');
+
+    Route::post('/tickets/{ticket}/reply', [App\Http\Controllers\TicketReplyController::class, 'store'])->name('tickets.reply');
 });

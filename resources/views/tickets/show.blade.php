@@ -465,7 +465,159 @@
                         @endif
                     </div>
                 </div>
+               {{-- Gelogde tijd overzicht --}}
+                @if($ticket->timeLogs->count() > 0)
+                <div class="bg-white rounded-lg border border-gray-200 p-6">
+                    <h3 class="text-base font-semibold text-gray-900 mb-4">Gelogde tijd</h3>
 
+                    <div class="space-y-2 mb-4">
+                        @foreach($ticket->timeLogs->sortByDesc('created_at') as $log)
+                            <div class="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-800">{{ $log->user->name }}</p>
+                                    <p class="text-xs text-gray-400">
+                                        @if($log->started_at)
+                                            {{ $log->started_at->format('d-m-Y H:i') }} → {{ $log->stopped_at->format('H:i') }}
+                                        @else
+                                            {{ $log->created_at->format('d-m-Y H:i') }}
+                                        @endif
+                                    </p>
+                                </div>
+                                <span class="text-sm font-semibold text-gray-700">
+                                    @if(floor($log->duration_minutes / 60) > 0)
+                                        {{ floor($log->duration_minutes / 60) }}u
+                                    @endif
+                                    @if($log->duration_minutes % 60 > 0)
+                                        {{ $log->duration_minutes % 60 }}m
+                                    @endif
+                                </span>
+                            </div>
+                        @endforeach
+                    </div>
+
+                    @php $totaal = $ticket->timeLogs->sum('duration_minutes'); @endphp
+                    <div class="flex items-center justify-between pt-2 border-t border-gray-200">
+                        <span class="text-sm font-semibold text-gray-700">Totaal</span>
+                        <span class="text-sm font-semibold text-teal-600">
+                            @if(floor($totaal / 60) > 0)
+                                {{ floor($totaal / 60) }}u
+                            @endif
+                            {{ $totaal % 60 }}m
+                        </span>
+                    </div>
+                </div>
+                @endif
+
+                {{-- Tijd loggen --}}
+                <div class="bg-white rounded-lg border border-gray-200 p-6">
+                    <h3 class="text-base font-semibold text-gray-900 mb-4">Tijd loggen</h3>
+
+                    {{-- Timer --}}
+                    <div x-data="{
+                        running: false,
+                        startedAt: null,
+                        elapsed: 0,
+                        interval: null,
+                        ticketId: '{{ $ticket->id }}',
+                        init() {
+                            const saved = localStorage.getItem('timer_' + this.ticketId);
+                            if (saved) {
+                                const data = JSON.parse(saved);
+                                this.startedAt = data.startedAt;
+                                this.running = true;
+                                this.elapsed = Math.floor((Date.now() - new Date(data.startedAt).getTime()) / 1000);
+                                this.interval = setInterval(() => {
+                                    this.elapsed = Math.floor((Date.now() - new Date(this.startedAt).getTime()) / 1000);
+                                }, 1000);
+                            }
+                        },
+                        start() {
+                            this.startedAt = new Date().toISOString();
+                            this.running = true;
+                            this.elapsed = 0;
+                            localStorage.setItem('timer_' + this.ticketId, JSON.stringify({ startedAt: this.startedAt }));
+                            this.interval = setInterval(() => {
+                                this.elapsed = Math.floor((Date.now() - new Date(this.startedAt).getTime()) / 1000);
+                            }, 1000);
+                        },
+                        stop() {
+                            clearInterval(this.interval);
+                            this.running = false;
+                            localStorage.removeItem('timer_' + this.ticketId);
+                            document.getElementById('timer_started_at').value = this.startedAt;
+                            document.getElementById('timer_stopped_at').value = new Date().toISOString();
+                            this.$nextTick(() => {
+                                document.getElementById('timer-form').submit();
+                            });
+                        },
+                        formatted() {
+                            let h = Math.floor(this.elapsed / 3600);
+                            let m = Math.floor((this.elapsed % 3600) / 60);
+                            let s = this.elapsed % 60;
+                            return [h,m,s].map(v => String(v).padStart(2,'0')).join(':');
+                        }
+                    }" x-init="init()" class="mb-4">
+                        <div class="text-3xl font-mono text-gray-800 mb-3" x-text="formatted()">00:00:00</div>
+                        <div class="flex gap-2">
+                            <button type="button"
+                                x-show="!running"
+                                @click="start()"
+                                class="flex items-center gap-2 bg-teal-500 hover:bg-teal-600 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M8 5v14l11-7z"/>
+                                </svg>
+                                Starten
+                            </button>
+                            <button type="button"
+                                x-show="running"
+                                @click="stop()"
+                                class="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M6 6h12v12H6z"/>
+                                </svg>
+                                Stoppen & opslaan
+                            </button>
+                        </div>
+
+                        <form id="timer-form"
+                            action="{{ route('timelogs.store', $ticket) }}"
+                            method="POST"
+                            class="hidden">
+                            @csrf
+                            <input type="hidden" id="timer_started_at" name="started_at">
+                            <input type="hidden" id="timer_stopped_at" name="stopped_at">
+                        </form>
+                    </div>
+
+                    {{-- Scheidingslijn --}}
+                    <div class="flex items-center gap-3 my-4">
+                        <div class="flex-1 border-t border-gray-200"></div>
+                        <span class="text-xs text-gray-400">of manueel invoeren</span>
+                        <div class="flex-1 border-t border-gray-200"></div>
+                    </div>
+
+                    {{-- Manuele invoer --}}
+                    <form action="{{ route('timelogs.store', $ticket) }}" method="POST">
+                        @csrf
+                        <div class="flex gap-3 mb-3">
+                            <div class="flex-1">
+                                <label class="block text-xs font-medium text-gray-500 mb-1">Uren</label>
+                                <input type="number" name="hours" min="0" value="0"
+                                    class="w-full rounded-lg border-gray-300 focus:border-teal-500 focus:ring-teal-500 text-sm">
+                            </div>
+                            <div class="flex-1">
+                                <label class="block text-xs font-medium text-gray-500 mb-1">Minuten</label>
+                                <input type="number" name="duration_minutes" min="0" max="59" value="0"
+                                    class="w-full rounded-lg border-gray-300 focus:border-teal-500 focus:ring-teal-500 text-sm">
+                            </div>
+                        </div>
+                        <button type="submit"
+                            class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-4 rounded-lg transition-colors text-sm">
+                            Toevoegen
+                        </button>
+                    </form>
+                </div>
+            
                 <!-- Ticket tijdlijn -->
                 <div class="bg-white rounded-lg border border-gray-200 p-6">
                     <h3 class="text-base font-semibold text-gray-900 mb-4">Tijdlijn</h3>

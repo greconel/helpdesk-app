@@ -5,6 +5,7 @@ use App\Events\TicketCreated;
 use App\Models\Customer;
 use App\Models\Ticket;
 use App\Models\TicketMessage;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
@@ -60,8 +61,26 @@ class MailToTicketService
             }
         }
 
-        $bodyText   = strip_tags($bodyHtml ?? '');
-        $receivedAt = $msg['receivedDateTime'] ?? now()->toISOString();
+        $bodyText = strip_tags($bodyHtml ?? '');
+
+        // Parse receivedDateTime en normaliseer naar app-timezone voordat we opslaan.
+        // Deze kolom bevat geen timezone-informatie, dus UTC forceren geeft verschoven tijden in de UI.
+        $receivedAtRaw = $msg['receivedDateTime'] ?? null;
+        $appTimezone   = config('app.timezone', 'UTC');
+
+        try {
+            $receivedAt = $receivedAtRaw
+                ? Carbon::parse($receivedAtRaw)->setTimezone($appTimezone)
+                : now($appTimezone);
+        } catch (\Throwable $e) {
+            Log::warning('receivedDateTime kon niet geparsed worden, fallback naar now(app.timezone)', [
+                'message_id'        => $graphId,
+                'receivedDateTime'  => $receivedAtRaw,
+                'error'             => $e->getMessage(),
+            ]);
+
+            $receivedAt = now($appTimezone);
+        }
 
         if (TicketMessage::where('message_id', $graphId)->exists()) {
             return;
@@ -109,7 +128,9 @@ class MailToTicketService
             'message_id'          => $graphId,
             'in_reply_to'         => $inReplyTo,
             'internet_message_id' => $internetMsgId,
-            'sent_at' => \Carbon\Carbon::parse($receivedAt)->setTimezone('UTC'),
+
+            // Opslaan als "Y-m-d H:i:s" in app-timezone houdt inbound gelijk met outbound (`now()`).
+            'sent_at'             => $receivedAt->toDateTimeString(),
         ]);
 
         if ($isNewTicket) {

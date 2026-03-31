@@ -44,4 +44,7 @@ return [
         'client_secret' => env('MICROSOFT_CLIENT_SECRET'),
         'mailbox'       => env('MICROSOFT_MAILBOX'),
     ],
+    'anthropic' => [
+        'key' => env('ANTHROPIC_API_KEY'),
+    ],
 ];

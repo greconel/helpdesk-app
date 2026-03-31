@@ -5,7 +5,7 @@ namespace App\Services;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
-class AILabellingService
+class AILabelingService
 {
     private string $apiKey;
     private string $model = 'claude-sonnet-4-5-20250929';

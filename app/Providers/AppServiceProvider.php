@@ -16,5 +16,9 @@ class AppServiceProvider extends ServiceProvider
             \App\Events\TicketCreated::class,
             \App\Listeners\AnalyseTicketWithAI::class,
         );
+         \Illuminate\Support\Facades\Event::listen(
+            \App\Events\TicketCreated::class,
+            \App\Listeners\SendTicketConfirmationToCustomer::class,
+        );
     }
 }

@@ -102,7 +102,7 @@ class MailToTicketService
             );
 
             $ticket = Ticket::create([
-                'ticket_number'           => $this->generateTicketNumber(),
+                'ticket_number' => Ticket::generateTicketNumber(),
                 'subject'                 => $subject,
                 'description'             => $bodyHtml,
                 'status'                  => 'new',
@@ -162,10 +162,4 @@ class MailToTicketService
         return null;
     }
 
-    private function generateTicketNumber(): string
-    {
-        $last = Ticket::orderBy('id', 'desc')->first();
-        $n    = $last ? ((int) str_replace('#', '', $last->ticket_number)) + 1 : 1;
-        return '#' . str_pad($n, 4, '0', STR_PAD_LEFT);
-    }
 }

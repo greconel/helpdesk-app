@@ -40,7 +40,7 @@ class TicketController extends Controller
             );
 
             $ticket = Ticket::create([
-                'ticket_number' => $this->generateTicketNumber(),
+                'ticket_number' => Ticket::generateTicketNumber(),
                 'subject'       => $validated['subject'],
                 'description'   => $validated['description'],
                 'status'        => 'new',
@@ -110,7 +110,7 @@ public function agentStore(Request $request)
         $status = $validated['assigned_to'] ? 'in_progress' : 'new';
 
         $ticket = Ticket::create([
-            'ticket_number' => $this->generateTicketNumber(),
+            'ticket_number' => Ticket::generateTicketNumber(),
             'subject'       => $validated['subject'],
             'description'   => $validated['description'],
             'status'        => $status,
@@ -214,17 +214,4 @@ public function agentStore(Request $request)
         return response()->json(['success' => true]);
     }
 
-    private function generateTicketNumber(): string
-    {
-        $lastTicket = Ticket::orderBy('id', 'desc')->first();
-
-        if (!$lastTicket) {
-            return '#0001';
-        }
-
-        $lastNumber = (int) str_replace('#', '', $lastTicket->ticket_number);
-        $newNumber  = $lastNumber + 1;
-
-        return '#' . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
-    }
 }

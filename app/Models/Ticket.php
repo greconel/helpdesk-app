@@ -57,5 +57,10 @@ class Ticket extends Model
     {
         return $this->hasMany(TicketMessage::class)->orderBy('sent_at');
     }
-
+    public static function generateTicketNumber(): string
+    {
+        $last = static::orderBy('id', 'desc')->first();
+        $n = $last ? ((int) str_replace('#', '', $last->ticket_number)) + 1 : 1;
+        return '#' . str_pad($n, 4, '0', STR_PAD_LEFT);
+    }
 }

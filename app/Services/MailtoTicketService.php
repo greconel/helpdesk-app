@@ -30,6 +30,20 @@ class MailToTicketService
         }
     }
 
+    private function sanitizeHtml(?string $html): ?string
+    {
+        if (!$html) return $html;
+
+        // Remove <style> blocks (prevents email CSS from bleeding into the page)
+        $html = preg_replace('/<style[^>]*>.*?<\/style>/is', '', $html);
+        // Remove <head> block entirely
+        $html = preg_replace('/<head[^>]*>.*?<\/head>/is', '', $html);
+        // Remove html/body wrapper tags but keep inner content
+        $html = preg_replace('/<\/?(html|body)[^>]*>/i', '', $html);
+
+        return trim($html);
+    }
+
     public function processMessage(array $msg): void
     {
         $graphId         = $msg['id'];
@@ -37,7 +51,7 @@ class MailToTicketService
         $subject         = $msg['subject'] ?? '(geen onderwerp)';
         $fromEmail       = data_get($msg, 'from.emailAddress.address');
         $fromName        = data_get($msg, 'from.emailAddress.name', $fromEmail);
-        $bodyHtml        = data_get($msg, 'body.content');
+        $bodyHtml        = $this->sanitizeHtml(data_get($msg, 'body.content'));
         $hasAttachments  = $msg['hasAttachments'] ?? false;
         $hasInlineImages = str_contains($bodyHtml ?? '', 'cid:');
 
@@ -64,7 +78,6 @@ class MailToTicketService
         $bodyText = strip_tags($bodyHtml ?? '');
 
         // Parse receivedDateTime en normaliseer naar app-timezone voordat we opslaan.
-        // Deze kolom bevat geen timezone-informatie, dus UTC forceren geeft verschoven tijden in de UI.
         $receivedAtRaw = $msg['receivedDateTime'] ?? null;
         $appTimezone   = config('app.timezone', 'UTC');
 
@@ -161,5 +174,4 @@ class MailToTicketService
 
         return null;
     }
-
 }

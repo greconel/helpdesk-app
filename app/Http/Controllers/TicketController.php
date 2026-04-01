@@ -123,10 +123,7 @@ public function agentStore(Request $request)
             $ticket->labels()->sync($validated['labels']);
         }
 
-        // Alleen event firen als bevestigingsmail gewenst is
-        if ($request->boolean('send_confirmation')) {
-            event(new TicketCreated($ticket));
-        }
+        event(new TicketCreated($ticket, $request->boolean('send_confirmation')));
 
         DB::commit();
 

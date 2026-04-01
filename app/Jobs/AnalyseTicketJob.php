@@ -3,7 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Ticket;
-use App\Services\AILabellingService;
+use App\Services\AILabelingService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -16,7 +16,7 @@ class AnalyseTicketJob implements ShouldQueue
 
     public function __construct(public Ticket $ticket) {}
 
-    public function handle(AILabellingService $ai): void
+    public function handle(AILabelingService $ai): void
     {
         // Skip als agent al manueel labels én impact heeft ingesteld
         if ($this->ticket->impact && $this->ticket->labels()->exists()) {

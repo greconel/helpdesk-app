@@ -10,5 +10,8 @@ class TicketCreated
 {
     use Dispatchable, SerializesModels;
 
-    public function __construct(public Ticket $ticket) {}
+    public function __construct(
+        public Ticket $ticket,
+        public bool $sendConfirmation = true
+    ) {}
 }

@@ -54,7 +54,7 @@ class AILabelingService
             return $result;
 
         } catch (\Throwable $e) {
-            Log::error('AILabellingService exception', ['error' => $e->getMessage()]);
+            Log::error('AILabelingService exception', ['error' => $e->getMessage()]);
             return null;
         }
     }

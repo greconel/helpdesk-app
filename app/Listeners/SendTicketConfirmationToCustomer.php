@@ -13,6 +13,10 @@ class SendTicketConfirmationToCustomer
 
     public function handle(TicketCreated $event): void
     {
+        if (!$event->sendConfirmation) {
+            return;
+        }
+
         $ticket   = $event->ticket;
         $customer = $ticket->customer;
 
@@ -55,8 +59,6 @@ class SendTicketConfirmationToCustomer
             $sent = $this->graph->sendMail($payload);
 
             if ($sent) {
-                // We slaan het bericht direct op. Voor de betrouwbare threading bij antwoorden 
-                // vertrouwen we nu ook in Odoo-stijl op het ticketnummer in het onderwerp ("Re: [#001]").
                 TicketMessage::create([
                     'ticket_id'           => $ticket->id,
                     'user_id'             => null,

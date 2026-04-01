@@ -159,18 +159,32 @@ public function agentStore(Request $request)
             'status'    => 'nullable|in:new,in_progress,on_hold,to_close,closed',
         ]);
 
+        // Alleen ai_labelled_impact resetten als de impact daadwerkelijk veranderd is
+        $impactChanged = $validated['impact'] !== $ticket->impact;
+
         $ticket->update([
-            'impact'    => $validated['impact'] ?? null,
-            'status'    => $validated['status'] ?? $ticket->status,
-            'closed_at' => ($validated['status'] === 'closed' && $ticket->status !== 'closed')
+            'impact'             => $validated['impact'] ?? null,
+            'status'             => $validated['status'] ?? $ticket->status,
+            'ai_labelled_impact' => $impactChanged ? false : $ticket->ai_labelled_impact,
+            'closed_at'          => ($validated['status'] === 'closed' && $ticket->status !== 'closed')
                 ? now()
                 : ($validated['status'] !== 'closed' ? null : $ticket->closed_at),
         ]);
 
         if ($request->has('labels')) {
+            // Controleer of de labels daadwerkelijk veranderd zijn
+            $huidigeLabels = $ticket->labels->pluck('id')->sort()->values()->toArray();
+            $nieuweLabels  = collect($validated['labels'] ?? [])->map(fn($id) => (int)$id)->sort()->values()->toArray();
+            $labelsChanged = $huidigeLabels !== $nieuweLabels;
+
             $ticket->labels()->sync($validated['labels']);
+
+            if ($labelsChanged) {
+                $ticket->update(['ai_labelled_labels' => false]);
+            }
         } else {
             $ticket->labels()->sync([]);
+            $ticket->update(['ai_labelled_labels' => false]);
         }
 
         return back()->with('success', 'Ticket succesvol bijgewerkt.');

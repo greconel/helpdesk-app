@@ -68,14 +68,24 @@
                                             'high'   => 'High impact',
                                         ];
                                     @endphp
-                                    <span class="px-3 py-1.5 inline-flex text-xs font-semibold rounded-lg {{ $impactStyles[$ticket->impact] }}">
+                                    <span class="relative px-3 py-1.5 inline-flex text-xs font-semibold rounded-lg {{ $impactStyles[$ticket->impact] }}">
                                         {{ $impactLabels[$ticket->impact] }}
+                                        @if($ticket->ai_labelled_impact)
+                                            <span class="absolute -top-1.5 -right-1.5 text-[9px] font-bold bg-purple-600 text-white rounded-full px-1 leading-4">
+                                                AI
+                                            </span>
+                                        @endif
                                     </span>
                                 @endif
 
                                 @foreach($ticket->labels as $label)
-                                    <span class="px-3 py-1.5 inline-flex text-xs font-semibold rounded-lg bg-gray-100 text-gray-700 border border-gray-200">
+                                    <span class="relative px-3 py-1.5 inline-flex text-xs font-semibold rounded-lg bg-gray-100 text-gray-700 border border-gray-200">
                                         {{ $label->name }}
+                                        @if($ticket->ai_labelled_labels)
+                                            <span class="absolute -top-1.5 -right-1.5 text-[9px] font-bold bg-purple-600 text-white rounded-full px-1 leading-4">
+                                                AI
+                                            </span>
+                                        @endif
                                     </span>
                                 @endforeach
                             </div>
@@ -94,9 +104,7 @@
                     </div>
                 </div>
 
-                {{-- ═══════════════════════════════════════════════
-                     CHAT / COMMUNICATIE TIJDLIJN
-                ════════════════════════════════════════════════ --}}
+                <!-- Communicatie tijdlijn -->
                 <div class="bg-white rounded-lg border border-gray-200 p-6">
                     <h3 class="text-base font-semibold text-gray-900 mb-5 flex items-center gap-2">
                         <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -105,11 +113,9 @@
                         Communicatie
                     </h3>
 
-                    {{-- Berichten tijdlijn --}}
                     <div class="space-y-4 mb-6 max-h-[600px] overflow-y-auto pr-1" id="message-timeline">
                         @forelse($ticket->messages as $msg)
                             @if($msg->direction === 'outbound')
-                                {{-- Agent bericht (rechts / blauw) --}}
                                 <div class="flex gap-3 justify-end">
                                     <div class="max-w-[85%]">
                                         <div class="flex items-center gap-2 justify-end mb-1">
@@ -131,7 +137,6 @@
                                     </div>
                                 </div>
                             @else
-                                {{-- Klant bericht (links / grijs) --}}
                                 <div class="flex gap-3">
                                     <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0 mt-1">
                                         <span class="text-xs font-bold text-gray-600">
@@ -166,7 +171,7 @@
                         @endforelse
                     </div>
 
-                    {{-- Antwoord formulier --}}
+                    <!-- Antwoord formulier -->
                     <form action="{{ route('tickets.reply', $ticket) }}" method="POST" class="border-t border-gray-200 pt-4">
                         @csrf
                         <div class="flex items-start gap-3">
@@ -204,11 +209,9 @@
                         </div>
                     </form>
                 </div>
-                {{-- ═══════════════════════════════════════════════
-                     EINDE CHAT / COMMUNICATIE TIJDLIJN
-                ════════════════════════════════════════════════ --}}
 
             </div>
+
             <!-- Sidebar -->
             <div class="space-y-6">
                 <!-- Ticket eigenschappen -->
@@ -245,7 +248,12 @@
 
                         <!-- Impact -->
                         <div>
-                            <label for="impact" class="block text-sm font-medium text-gray-700 mb-2">Impact</label>
+                            <label for="impact" class="block text-sm font-medium text-gray-700 mb-2">
+                                Impact
+                                @if($ticket->ai_labelled_impact)
+                                    <span class="ml-1 text-[9px] font-bold bg-purple-600 text-white rounded-full px-1.5 py-0.5">AI</span>
+                                @endif
+                            </label>
                             <select name="impact" id="impact" class="w-full rounded-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-sm">
                                 <option value="">Geen impact toegewezen</option>
                                 <option value="low"    {{ $ticket->impact === 'low'    ? 'selected' : '' }}>Low impact</option>
@@ -259,7 +267,12 @@
 
                         <!-- Labels -->
                         <div>
-                            <label for="labels" class="block text-sm font-medium text-gray-700 mb-2">Labels</label>
+                            <label for="labels" class="block text-sm font-medium text-gray-700 mb-2">
+                                Labels
+                                @if($ticket->ai_labelled_labels)
+                                    <span class="ml-1 text-[9px] font-bold bg-purple-600 text-white rounded-full px-1.5 py-0.5">AI</span>
+                                @endif
+                            </label>
                             <select name="labels[]" id="labels" multiple class="w-full rounded-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-sm" style="min-height: 120px;">
                                 @foreach($allLabels as $label)
                                     <option value="{{ $label->id }}" {{ $ticket->labels->contains($label->id) ? 'selected' : '' }}>
@@ -273,7 +286,7 @@
                             @enderror
                         </div>
 
-                        <!-- Toegewezen aan (readonly) -->
+                        <!-- Toegewezen aan -->
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Toegewezen aan</label>
                             <div class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600">
@@ -312,7 +325,8 @@
                         @endif
                     </div>
                 </div>
-               {{-- Gelogde tijd overzicht --}}
+
+                <!-- Gelogde tijd -->
                 @if($ticket->timeLogs->count() > 0)
                 <div class="bg-white rounded-lg border border-gray-200 p-6">
                     <h3 class="text-base font-semibold text-gray-900 mb-4">Gelogde tijd</h3>
@@ -355,11 +369,10 @@
                 </div>
                 @endif
 
-                {{-- Tijd loggen --}}
+                <!-- Tijd loggen -->
                 <div class="bg-white rounded-lg border border-gray-200 p-6">
                     <h3 class="text-base font-semibold text-gray-900 mb-4">Tijd loggen</h3>
 
-                    {{-- Timer --}}
                     <div x-data="{
                         running: false,
                         startedAt: null,
@@ -436,14 +449,12 @@
                         </form>
                     </div>
 
-                    {{-- Scheidingslijn --}}
                     <div class="flex items-center gap-3 my-4">
                         <div class="flex-1 border-t border-gray-200"></div>
                         <span class="text-xs text-gray-400">of manueel invoeren</span>
                         <div class="flex-1 border-t border-gray-200"></div>
                     </div>
 
-                    {{-- Manuele invoer --}}
                     <form action="{{ route('timelogs.store', $ticket) }}" method="POST">
                         @csrf
                         <div class="flex gap-3 mb-3">
@@ -464,7 +475,7 @@
                         </button>
                     </form>
                 </div>
-            
+
                 <!-- Ticket tijdlijn -->
                 <div class="bg-white rounded-lg border border-gray-200 p-6">
                     <h3 class="text-base font-semibold text-gray-900 mb-4">Tijdlijn</h3>

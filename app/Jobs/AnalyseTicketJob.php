@@ -18,7 +18,6 @@ class AnalyseTicketJob implements ShouldQueue
 
     public function handle(AILabelingService $ai): void
     {
-        // Skip als agent al manueel labels én impact heeft ingesteld
         if ($this->ticket->impact && $this->ticket->labels()->exists()) {
             Log::info("Ticket {$this->ticket->ticket_number}: AI analyse overgeslagen, al manueel ingesteld.");
             return;
@@ -34,14 +33,17 @@ class AnalyseTicketJob implements ShouldQueue
             return;
         }
 
-        // Alleen overschrijven wat nog niet ingesteld is
         if (!$this->ticket->impact && !empty($result['impact'])) {
-            $this->ticket->update(['impact' => $result['impact']]);
+            $this->ticket->update([
+                'impact'             => $result['impact'],
+                'ai_labelled_impact' => true,
+            ]);
         }
 
         if (!$this->ticket->labels()->exists() && !empty($result['labels'])) {
             $labels = \App\Models\Label::whereIn('name', $result['labels'])->pluck('id');
             $this->ticket->labels()->sync($labels);
+            $this->ticket->update(['ai_labelled_labels' => true]);
         }
 
         Log::info("Ticket {$this->ticket->ticket_number}: AI analyse succesvol.", $result);

@@ -23,9 +23,11 @@ class AnalyseTicketJob implements ShouldQueue
             return;
         }
 
+        // Geef ticketId mee zodat de service het AI-voorstel kan cachen
         $result = $ai->analyse(
             $this->ticket->subject,
-            $this->ticket->description
+            $this->ticket->description,
+            $this->ticket->id
         );
 
         if (!$result) {

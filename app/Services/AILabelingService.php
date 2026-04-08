@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\AiAnalysis;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -51,17 +52,15 @@ class AILabelingService
                 return null;
             }
 
-            // Sla het AI-voorstel op in cache zodat de TicketObserver
-            // het kan ophalen als een agent het later corrigeert.
-            // Geldig voor 2 uur.
             if ($ticketId > 0) {
-                cache([
-                    "ai_analysis_{$ticketId}" => [
+                AiAnalysis::updateOrCreate(
+                    ['ticket_id' => $ticketId],
+                    [
                         'impact'        => $result['impact'],
                         'labels'        => $result['labels'],
                         'skill_version' => $this->skillVersion,
-                    ],
-                ], now()->addHours(2));
+                    ]
+                );
             }
 
             return $result;
@@ -72,10 +71,6 @@ class AILabelingService
         }
     }
 
-    /**
-     * Laad het skill MD-bestand in als het bestaat.
-     * Haal ook de versie eruit voor de cache.
-     */
     private function loadSkill(): string
     {
         $path = storage_path('ai-skill/labeling-skill.md');
@@ -86,7 +81,6 @@ class AILabelingService
 
         $content = file_get_contents($path);
 
-        // Versie uit het bestand halen voor traceerbaarheid
         if (preg_match('/\*\*Versie:\*\*\s*(.+)/m', $content, $matches)) {
             $this->skillVersion = trim($matches[1]);
         }

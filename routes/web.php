@@ -34,4 +34,6 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/tickets/{ticket}/timelogs', [TimeLogController::class, 'store'])->name('timelogs.store');
 
     Route::post('/tickets/{ticket}/reply', [App\Http\Controllers\TicketReplyController::class, 'store'])->name('tickets.reply');
+    Route::get('/corrections/export', [App\Http\Controllers\CorrectionExportController::class, 'export'])
+    ->name('corrections.export');
 });

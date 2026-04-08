@@ -2,6 +2,7 @@
 
 namespace App\Observers;
 
+use App\Models\AiAnalysis;
 use App\Models\AiCorrectionLog;
 use App\Models\Ticket;
 use App\Services\MotionService;
@@ -11,7 +12,6 @@ class TicketObserver
 {
     public function updated(Ticket $ticket): void
     {
-        // --- Bestaande Motion logica ---
         $motion = app(MotionService::class);
 
         $assigneeVeranderd = $ticket->wasChanged('assigned_to');
@@ -19,7 +19,6 @@ class TicketObserver
 
         if ($statusVeranderd && $ticket->status === 'closed' && $ticket->motion_task_id) {
             $motion->completeTask($ticket->motion_task_id);
-            // Ga door — we willen ook de correctielog nog checken
         }
 
         if ($assigneeVeranderd && $ticket->assigned_to && !$ticket->motion_task_id) {
@@ -43,7 +42,6 @@ class TicketObserver
             }
         }
 
-        // --- Nieuwe AI correctielog logica ---
         $this->detectAiCorrection($ticket);
     }
 
@@ -52,24 +50,19 @@ class TicketObserver
         $impactGewijzigd = $ticket->wasChanged('impact');
         $labelsGewijzigd = $ticket->wasChanged('ai_labelled_labels');
 
-        // Niets gewijzigd dat relevant is
         if (!$impactGewijzigd && !$labelsGewijzigd) {
             return;
         }
 
-        // Controleer of de wijziging een AI-label betreft.
-        // We kijken naar de ORIGINELE waarden vóór de update.
         $originelen = $ticket->getOriginal();
 
-        $wasAiImpact  = (bool) ($originelen['ai_labelled_impact'] ?? false);
-        $wasAiLabels  = (bool) ($originelen['ai_labelled_labels'] ?? false);
+        $wasAiImpact = (bool) ($originelen['ai_labelled_impact'] ?? false);
+        $wasAiLabels = (bool) ($originelen['ai_labelled_labels'] ?? false);
 
-        // Als geen van beide door AI was gelabeld, niets te loggen
         if (!$wasAiImpact && !$wasAiLabels) {
             return;
         }
 
-        // Alleen loggen als de relevante AI-velden ook echt wijzigden
         $impactCorrectie = $impactGewijzigd && $wasAiImpact;
         $labelsCorrectie = $labelsGewijzigd && $wasAiLabels;
 
@@ -77,22 +70,24 @@ class TicketObserver
             return;
         }
 
-        // Haal het originele AI-voorstel op uit de cache
-        $aiAnalysis = cache("ai_analysis_{$ticket->id}");
+        $dbAnalysis = AiAnalysis::where('ticket_id', $ticket->id)->first();
+
+        $aiAnalysis = $dbAnalysis ? [
+            'impact'        => $dbAnalysis->impact,
+            'labels'        => $dbAnalysis->labels,
+            'skill_version' => $dbAnalysis->skill_version,
+        ] : null;
 
         if (!$aiAnalysis) {
-            // Cache is verlopen — we loggen wat we weten maar zonder AI-voorstel
-            Log::info("AI correctielog: cache verlopen voor ticket {$ticket->ticket_number}, log zonder AI-voorstel.");
+            Log::info("AI correctielog: geen AI-voorstel gevonden voor ticket {$ticket->ticket_number}.");
         }
 
-        // Bepaal het type correctie
         $type = match (true) {
             $impactCorrectie && $labelsCorrectie => 'both',
             $impactCorrectie                     => 'impact_only',
             default                              => 'labels_only',
         };
 
-        // Huidige labels van het ticket ophalen
         $agentLabels = $ticket->labels()->pluck('name')->toArray();
 
         AiCorrectionLog::create([
@@ -109,9 +104,9 @@ class TicketObserver
         ]);
 
         Log::info("AI correctie gelogd voor ticket {$ticket->ticket_number}", [
-            'type'        => $type,
-            'ai_impact'   => $aiAnalysis['impact'] ?? null,
-            'agent_impact'=> $ticket->impact,
+            'type'         => $type,
+            'ai_impact'    => $aiAnalysis['impact'] ?? null,
+            'agent_impact' => $ticket->impact,
         ]);
     }
 }

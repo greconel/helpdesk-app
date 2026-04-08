@@ -25,7 +25,7 @@ class CorrectionExportService
     private function getAllCorrections(): Collection
     {
         return AiCorrectionLog::with([
-            'ticket:id,ticket_number,subject',
+            'ticket:id,ticket_number,subject,customer_id',  // ← customer_id toegevoegd
             'ticket.customer:id,name,email',
             'agent:id,name'
         ])

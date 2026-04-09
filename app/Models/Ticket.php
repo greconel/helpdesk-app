@@ -26,7 +26,7 @@ class Ticket extends Model
         'closed_at',
         'source',                   
         'last_inbound_message_id',
-
+        'motion_task_id',          
     ];
 
     public function getActivitylogOptions(): LogOptions

@@ -6,6 +6,10 @@ use App\Models\AiAnalysis;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
+/**
+ * AI-service voor ticket analyse via Claude API
+ * Wijst automatisch impact (low/medium/high) en labels toe
+ */
 class AILabelingService
 {
     private string $apiKey;
@@ -17,12 +21,21 @@ class AILabelingService
         $this->apiKey = config('services.anthropic.key');
     }
 
+    /**
+     * Analyseer ticket en retourneer impact + labels
+     *
+     * @param string $subject Ticket onderwerp
+     * @param string $description Ticket beschrijving
+     * @param int $ticketId Ticket ID (0 = niet opslaan)
+     * @return array|null ['impact' => ..., 'labels' => ...] of null bij fout
+     */
     public function analyse(string $subject, string $description, int $ticketId): ?array
     {
         $skill  = $this->loadSkill();
         $prompt = $this->buildPrompt($subject, $description, $skill);
 
         try {
+            // Call Anthropic API
             $response = Http::withHeaders([
                 'x-api-key'         => $this->apiKey,
                 'anthropic-version' => '2023-06-01',
@@ -40,6 +53,7 @@ class AILabelingService
                 return null;
             }
 
+            // Parse JSON response (strip markdown code blocks)
             $content = $response->json('content.0.text');
             $content = preg_replace('/```json\s*/i', '', $content);
             $content = preg_replace('/```\s*/i', '', $content);
@@ -52,6 +66,7 @@ class AILabelingService
                 return null;
             }
 
+            // Sla result op in database
             if ($ticketId > 0) {
                 AiAnalysis::updateOrCreate(
                     ['ticket_id' => $ticketId],
@@ -71,6 +86,9 @@ class AILabelingService
         }
     }
 
+    /**
+     * Laad business rules (skill) uit storage
+     */
     private function loadSkill(): string
     {
         $path = storage_path('ai-skill/labeling-skill.md');
@@ -81,6 +99,7 @@ class AILabelingService
 
         $content = file_get_contents($path);
 
+        // Extract versie nummer
         if (preg_match('/\*\*Versie:\*\*\s*(.+)/m', $content, $matches)) {
             $this->skillVersion = trim($matches[1]);
         }
@@ -88,6 +107,9 @@ class AILabelingService
         return $content;
     }
 
+    /**
+     * Bouw prompt voor ticket analyse
+     */
     private function buildPrompt(string $subject, string $description, string $skill): string
     {
         $cleanDescription = substr(strip_tags($description), 0, 800);
@@ -129,6 +151,9 @@ Als je onvoldoende informatie hebt, geef dan terug:
 PROMPT;
     }
 
+    /**
+     * Valideer AI response
+     */
     private function isValid(?array $result): bool
     {
         if (!$result) return false;

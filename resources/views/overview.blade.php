@@ -17,7 +17,7 @@
                 </div>
                 <div>
                     <p class="text-sm text-gray-600">Total tickets</p>
-                    <p class="text-2xl font-semibold text-gray-900">{{ \App\Models\Ticket::count() }}</p>
+                    <p class="text-2xl font-semibold text-gray-900">{{ $totalTickets }}</p>
                 </div>
             </div>
         </div>
@@ -31,7 +31,7 @@
                 </div>
                 <div>
                     <p class="text-sm text-gray-600">Open tickets</p>
-                    <p class="text-2xl font-semibold text-gray-900">{{ \App\Models\Ticket::whereIn('status', ['new', 'in_progress', 'on_hold', 'to_close'])->count() }}</p>
+                    <p class="text-2xl font-semibold text-gray-900">{{ $openTickets }}</p>
                 </div>
             </div>
         </div>
@@ -45,29 +45,13 @@
                 </div>
                 <div>
                     <p class="text-sm text-gray-600">Closed tickets</p>
-                    <p class="text-2xl font-semibold text-gray-900">{{ \App\Models\Ticket::where('status', 'closed')->count() }}</p>
+                    <p class="text-2xl font-semibold text-gray-900">{{ $closedTickets }}</p>
                 </div>
             </div>
         </div>
     </div>
 
     {{-- AI Correcties sectie --}}
-    @php
-        $totalCorrections   = \App\Models\AiCorrectionLog::count();
-        $unprocessed        = \App\Models\AiCorrectionLog::where('processed', false)->count();
-        $impactOnly         = \App\Models\AiCorrectionLog::where('correction_type', 'impact_only')->count();
-        $labelsOnly         = \App\Models\AiCorrectionLog::where('correction_type', 'labels_only')->count();
-        $both               = \App\Models\AiCorrectionLog::where('correction_type', 'both')->count();
-        $currentSkillVersion = 'onbekend';
-        $skillPath = storage_path('ai-skill/labeling-skill.md');
-        if (file_exists($skillPath)) {
-            $skillContent = file_get_contents($skillPath);
-            if (preg_match('/\*\*Versie:\*\*\s*(.+)/m', $skillContent, $matches)) {
-                $currentSkillVersion = trim($matches[1]);
-            }
-        }
-    @endphp
-
     <div class="mb-4 flex items-center justify-between">
         <h2 class="text-base font-semibold text-gray-900">AI Correcties</h2>
         <div class="flex items-center gap-3">

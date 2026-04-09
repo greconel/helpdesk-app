@@ -8,6 +8,10 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
 
+/**
+ * Async job voor AI-analyse van tickets
+ * Wijst automatisch impact en labels toe, tenzij al manueel ingesteld
+ */
 class AnalyseTicketJob implements ShouldQueue
 {
     use Queueable;
@@ -16,14 +20,17 @@ class AnalyseTicketJob implements ShouldQueue
 
     public function __construct(public Ticket $ticket) {}
 
+    /**
+     * Analyseer ticket en wijs impact/labels toe
+     */
     public function handle(AILabelingService $ai): void
     {
+        // Skip als al manueel ingesteld
         if ($this->ticket->impact && $this->ticket->labels()->exists()) {
             Log::info("Ticket {$this->ticket->ticket_number}: AI analyse overgeslagen, al manueel ingesteld.");
             return;
         }
 
-        // Geef ticketId mee zodat de service het AI-voorstel kan cachen
         $result = $ai->analyse(
             $this->ticket->subject,
             $this->ticket->description,
@@ -35,6 +42,7 @@ class AnalyseTicketJob implements ShouldQueue
             return;
         }
 
+        // Wijs impact toe als nog niet ingesteld
         if (!$this->ticket->impact && !empty($result['impact'])) {
             $this->ticket->update([
                 'impact'             => $result['impact'],
@@ -42,6 +50,7 @@ class AnalyseTicketJob implements ShouldQueue
             ]);
         }
 
+        // Wijs labels toe als nog geen labels aanwezig
         if (!$this->ticket->labels()->exists() && !empty($result['labels'])) {
             $labels = \App\Models\Label::whereIn('name', $result['labels'])->pluck('id');
             $this->ticket->labels()->sync($labels);
@@ -51,6 +60,9 @@ class AnalyseTicketJob implements ShouldQueue
         Log::info("Ticket {$this->ticket->ticket_number}: AI analyse succesvol.", $result);
     }
 
+    /**
+     * Behandel mislukking na alle retry-pogingen
+     */
     public function failed(\Throwable $e): void
     {
         Log::error("AnalyseTicketJob mislukt voor ticket {$this->ticket->ticket_number}", [

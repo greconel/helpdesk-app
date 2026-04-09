@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Ticket;
 use App\Models\User;
 use Illuminate\Http\Request;
+use App\Models\AiCorrectionLog;
 
 class DashboardController extends Controller
 {
@@ -58,6 +59,35 @@ class DashboardController extends Controller
     }
     public function overview()
     {
-        return view('overview');
+        $totalTickets   = Ticket::count();
+        $openTickets    = Ticket::whereIn('status', ['new', 'in_progress', 'on_hold', 'to_close'])->count();
+        $closedTickets  = Ticket::where('status', 'closed')->count();
+
+        $totalCorrections   = AiCorrectionLog::count();
+        $unprocessed        = AiCorrectionLog::where('processed', false)->count();
+        $impactOnly         = AiCorrectionLog::where('correction_type', 'impact_only')->count();
+        $labelsOnly         = AiCorrectionLog::where('correction_type', 'labels_only')->count();
+        $both               = AiCorrectionLog::where('correction_type', 'both')->count();
+
+        $currentSkillVersion = 'onbekend';
+        $skillPath = storage_path('ai-skill/labeling-skill.md');
+        if (file_exists($skillPath)) {
+            $skillContent = file_get_contents($skillPath);
+            if (preg_match('/\*\*Versie:\*\*\s*(.+)/m', $skillContent, $matches)) {
+                $currentSkillVersion = trim($matches[1]);
+            }
+        }
+
+        return view('overview', compact(
+            'totalTickets',
+            'openTickets',
+            'closedTickets',
+            'totalCorrections',
+            'unprocessed',
+            'impactOnly',
+            'labelsOnly',
+            'both',
+            'currentSkillVersion'
+        ));
     }
 }

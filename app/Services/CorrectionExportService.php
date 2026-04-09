@@ -20,12 +20,12 @@ class CorrectionExportService
     }
 
     /**
-     * Haal alle correcties op met gerelateerde data
+     * Haal alle correcties op met gerelateerde data (optimized query)
      */
     private function getAllCorrections(): Collection
     {
         return AiCorrectionLog::with([
-            'ticket:id,ticket_number,subject,customer_id',  // ← customer_id toegevoegd
+            'ticket:id,ticket_number,subject,customer_id',
             'ticket.customer:id,name,email',
             'agent:id,name'
         ])
@@ -34,7 +34,7 @@ class CorrectionExportService
     }
 
     /**
-     * Genereer CSV rijen
+     * Genereer CSV rijen inclusief header
      */
     private function generateCsvRows(Collection $corrections): array
     {
@@ -94,7 +94,7 @@ class CorrectionExportService
     }
 
     /**
-     * Format labels array voor CSV
+     * Format labels array naar CSV string
      */
     private function formatLabelsForCsv(?array $labels): string
     {
@@ -105,7 +105,7 @@ class CorrectionExportService
     }
 
     /**
-     * Format rijen als CSV string met proper escaping
+     * Format rijen als RFC 4180 CSV string met CRLF line endings
      */
     private function formatCsv(array $rows): string
     {
@@ -120,7 +120,7 @@ class CorrectionExportService
     }
 
     /**
-     * Escape CSV veld (quotes en komma's)
+     * Escape CSV veld (commas, quotes, newlines)
      */
     private function escapeCsvField(string $field): string
     {
@@ -144,7 +144,7 @@ class CorrectionExportService
     }
 
     /**
-     * Genereer bestandsnaam
+     * Genereer bestandsnaam met timestamp
      */
     public function generateFilename(): string
     {
@@ -173,7 +173,7 @@ class CorrectionExportService
     }
 
     /**
-     * Bereken statistieken per label
+     * Bereken label frequentie statistieken
      */
     private function calculateLabelStats(Collection $corrections): array
     {

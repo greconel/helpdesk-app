@@ -47,4 +47,9 @@ return [
     'anthropic' => [
         'key' => env('ANTHROPIC_API_KEY'),
     ],
+    'github' => [
+        'token'     => env('GITHUB_TOKEN'),
+        'repo'      => env('GITHUB_REPO'),
+        'docs_path' => env('GITHUB_DOCS_PATH', 'docs/'),
+    ],
 ];

@@ -36,4 +36,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/tickets/{ticket}/reply', [App\Http\Controllers\TicketReplyController::class, 'store'])->name('tickets.reply');
     Route::get('/corrections/export', [App\Http\Controllers\CorrectionExportController::class, 'export'])
     ->name('corrections.export');
+
+    // Chatbot routes
+    Route::post('/chat/ask',   [App\Http\Controllers\ChatController::class, 'ask'])->name('chat.ask');
+    Route::post('/chat/reset', [App\Http\Controllers\ChatController::class, 'reset'])->name('chat.reset');
 });

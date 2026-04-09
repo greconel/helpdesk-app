@@ -114,6 +114,7 @@ class CorrectionExportService
             foreach ($row as $field) {
                 $output .= $this->escapeCsvField($field) . ',';
             }
+            // Verwijder laatste komma, voeg CRLF toe (\r\n voor Windows Excel compatibiliteit)
             $output = rtrim($output, ',') . "\r\n";
         }
         return $output;
@@ -125,6 +126,7 @@ class CorrectionExportService
     private function escapeCsvField(string $field): string
     {
         if (str_contains($field, ',') || str_contains($field, '"') || str_contains($field, "\n")) {
+            // Wrap in quotes, en verdubbel interne quotes (RFC 4180 escaping)
             return '"' . str_replace('"', '""', $field) . '"';
         }
         return $field;

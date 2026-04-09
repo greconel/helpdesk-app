@@ -120,5 +120,11 @@
             </main>
         </div>
     </div>
+<!--{{-- Chatbot widget --}}
+    @if(config('chatbot.enabled'))
+        <x-chatbot-widget />
+  @endif 
+-->
+
 </body>
 </html>

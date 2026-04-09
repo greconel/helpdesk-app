@@ -55,6 +55,7 @@ class AILabelingService
 
             // Parse JSON response (strip markdown code blocks)
             $content = $response->json('content.0.text');
+            // Claude voegt soms ```json``` code blocks toe, die moeten weg voor parsing
             $content = preg_replace('/```json\s*/i', '', $content);
             $content = preg_replace('/```\s*/i', '', $content);
             $content = trim($content);
@@ -112,6 +113,7 @@ class AILabelingService
      */
     private function buildPrompt(string $subject, string $description, string $skill): string
     {
+        // Strip HTML en beperk tot 800 chars: mailedt ofta HTML, en lange tekst kost token credits
         $cleanDescription = substr(strip_tags($description), 0, 800);
 
         $skillSection = '';
@@ -160,9 +162,11 @@ PROMPT;
         if (!isset($result['labels']) || !is_array($result['labels'])) return false;
         if (!array_key_exists('impact', $result)) return false;
 
+        // Impact moet een van de gedefinieerde waarden zijn, null is toegestaan als onzeker
         $validImpacts = ['low', 'medium', 'high', null];
         if (!in_array($result['impact'], $validImpacts, true)) return false;
 
+        // Controleer dat labels enkel uit onze bekende set komen (preventie tegen hallucinations)
         $validLabels = ['bug', 'feature request', 'onderzoek', 'eigenlijk niet voor ons'];
         foreach ($result['labels'] as $label) {
             if (!in_array($label, $validLabels, true)) return false;

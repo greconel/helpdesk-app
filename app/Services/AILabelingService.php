@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Log;
 class AILabelingService
 {
     private string $apiKey;
-    private string $model = 'claude-sonnet-4-5-20250929';
+    private string $model = 'claude-haiku-4-5-20251001'; // was: claude-sonnet-4-5-20250929
     private string $skillVersion = 'v1.0';
 
     public function __construct()
@@ -49,8 +49,15 @@ class AILabelingService
             ]);
 
             if (!$response->successful()) {
+                $errorType = $response->json('error.type');
+
+                // Bij overload: gooi exception zodat de queue job het opnieuw probeert
+                if ($errorType === 'overloaded_error') {
+                    throw new \RuntimeException('Anthropic API overloaded — retry later');
+                }
+
                 Log::error('Anthropic API call mislukt', ['body' => $response->body()]);
-                return null;
+                return $this->fallbackAnalyse($subject, $description, $ticketId);
             }
 
             // Parse JSON response (strip markdown code blocks)
@@ -63,7 +70,7 @@ class AILabelingService
 
             if (!$this->isValid($result)) {
                 Log::warning('Ongeldig AI resultaat', ['result' => $result]);
-                return null;
+                return $this->fallbackAnalyse($subject, $description, $ticketId);
             }
 
             // Sla result op in database
@@ -80,10 +87,65 @@ class AILabelingService
 
             return $result;
 
+        } catch (\RuntimeException $e) {
+            // Overload exceptions opnieuw gooien zodat de queue job retried
+            throw $e;
         } catch (\Throwable $e) {
             Log::error('AILabelingService exception', ['error' => $e->getMessage()]);
-            return null;
+            return $this->fallbackAnalyse($subject, $description, $ticketId);
         }
+    }
+
+    /**
+     * Eenvoudige keyword-gebaseerde fallback als de API niet bereikbaar is
+     */
+    private function fallbackAnalyse(string $subject, string $description, int $ticketId): ?array
+    {
+        $text = strtolower($subject . ' ' . $description);
+
+        // Impact bepalen
+        $impact = 'low';
+        if (preg_match('/stil|blokk|urgent|asap|niet meer|crash|down|werkt niet|productie/i', $text)) {
+            $impact = 'high';
+        } elseif (preg_match('/hinder|traag|soms|af en toe|workaround/i', $text)) {
+            $impact = 'medium';
+        }
+
+        // Label bepalen
+        $labels = [];
+        if (preg_match('/fout|bug|werkt niet|error|crash|defect|verkeerd/i', $text)) {
+            $labels[] = 'bug';
+        }
+        if (preg_match('/toevoegen|nieuw|feature|kunnen we|zou fijn|wil graag|export|integratie/i', $text)) {
+            $labels[] = 'feature request';
+        }
+        if (preg_match('/onduidelijk|weet niet|misschien|onderzoek|waarom|hoe komt/i', $text)) {
+            $labels[] = 'onderzoek';
+        }
+        if (preg_match('/microsoft|teams|google|externe|niet onze|andere partij/i', $text)) {
+            $labels[] = 'eigenlijk niet voor ons';
+        }
+        if (empty($labels)) {
+            $labels[] = 'onderzoek';
+        }
+
+        $result = ['impact' => $impact, 'labels' => $labels];
+
+        Log::info("Ticket #{$ticketId}: fallback analyse gebruikt (API onbereikbaar)", $result);
+
+        // Sla ook fallback resultaat op in de database
+        if ($ticketId > 0) {
+            AiAnalysis::updateOrCreate(
+                ['ticket_id' => $ticketId],
+                [
+                    'impact'        => $result['impact'],
+                    'labels'        => $result['labels'],
+                    'skill_version' => 'fallback',
+                ]
+            );
+        }
+
+        return $result;
     }
 
     /**

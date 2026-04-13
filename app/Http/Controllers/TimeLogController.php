@@ -19,10 +19,11 @@ class TimeLogController extends Controller
             'duration_minutes' => 'nullable|integer|min:0',
         ]);
 
-        // Timer: bereken duur uit start- en stoptijd
+        // Timer: bereken duur in seconden uit start- en stoptijd
         if ($request->started_at && $request->stopped_at) {
-            $duration = (int) Carbon::parse($request->started_at)
-                ->diffInMinutes(Carbon::parse($request->stopped_at));
+            $durationSeconds = (int) Carbon::parse($request->started_at)
+                ->diffInSeconds(Carbon::parse($request->stopped_at));
+            $duration = max(1, (int) round($durationSeconds / 60));
         } else {
             // Manuele invoer: uren + minuten samenvoegen
             $duration = (($request->hours ?? 0) * 60) + ($request->duration_minutes ?? 0);

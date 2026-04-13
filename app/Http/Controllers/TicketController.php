@@ -29,7 +29,6 @@ class TicketController extends Controller
      */
     public function store(Request $request)
     {
-        // Validate all required fields with custom error messages
         $validated = $request->validate([
             'name'        => 'required|string|max:255',
             'email'       => 'required|email|max:255',
@@ -43,28 +42,24 @@ class TicketController extends Controller
             'description.required' => 'Beschrijving is verplicht',
         ]);
 
-        // Start database transaction to ensure customer + ticket are both created or both fail
         DB::beginTransaction();
         try {
-            // Retrieve or create customer record by email (prevents duplicates)
             $customer = Customer::firstOrCreate(
                 ['email' => $validated['email']],
                 ['name'  => $validated['name']]
             );
 
-            // Create ticket with auto-generated number and initial status
             $ticket = Ticket::create([
                 'ticket_number' => Ticket::generateTicketNumber(),
                 'subject'       => $validated['subject'],
                 'description'   => $validated['description'],
                 'status'        => 'new',
-                'impact'        => null, // Will be set by AI analysis
+                'impact'        => null,
                 'customer_id'   => $customer->id,
             ]);
 
             DB::commit();
 
-            // Dispatch event: triggers async AI analysis job and email confirmation to customer
             event(new TicketCreated($ticket));
 
             return redirect()
@@ -93,7 +88,6 @@ class TicketController extends Controller
      */
     public function agentStore(Request $request)
     {
-        // Complex validation rules due to conditional customer_mode logic
         $validated = $request->validate([
             'customer_mode'      => 'required|in:existing,new',
             'customer_id'        => 'required_if:customer_mode,existing|nullable|exists:customers,id',
@@ -117,7 +111,6 @@ class TicketController extends Controller
 
         DB::beginTransaction();
         try {
-            // Route to existing or new customer based on form input
             if ($validated['customer_mode'] === 'existing') {
                 $customer = Customer::findOrFail($validated['customer_id']);
             } else {
@@ -130,10 +123,8 @@ class TicketController extends Controller
                 );
             }
 
-            // Auto-set status: if assigned to agent, mark as 'in_progress', else 'new'
             $status = $validated['assigned_to'] ? 'in_progress' : 'new';
 
-            // Create ticket with all provided metadata
             $ticket = Ticket::create([
                 'ticket_number' => Ticket::generateTicketNumber(),
                 'subject'       => $validated['subject'],
@@ -144,14 +135,12 @@ class TicketController extends Controller
                 'assigned_to'   => $validated['assigned_to'] ?? null,
             ]);
 
-            // Attach labels via pivot table (many-to-many relationship)
             if (!empty($validated['labels'])) {
                 $ticket->labels()->sync($validated['labels']);
             }
 
             DB::commit();
 
-            // Dispatch event with send_confirmation flag (optional email to customer)
             event(new TicketCreated($ticket, $request->boolean('send_confirmation')));
 
             return redirect()
@@ -171,7 +160,6 @@ class TicketController extends Controller
     {
         $query = $request->get('q', '');
 
-        // Search across name and email fields, return limited columns for efficiency
         $customers = Customer::where('name', 'like', "%{$query}%")
             ->orWhere('email', 'like', "%{$query}%")
             ->orderBy('name')
@@ -184,10 +172,11 @@ class TicketController extends Controller
     public function update(Request $request, Ticket $ticket)
     {
         $validated = $request->validate([
-            'impact'    => 'nullable|in:low,medium,high',
-            'labels'    => 'array',
-            'labels.*'  => 'exists:labels,id',
-            'status'    => 'nullable|in:new,in_progress,on_hold,to_close,closed',
+            'impact'      => 'nullable|in:low,medium,high',
+            'labels'      => 'array',
+            'labels.*'    => 'exists:labels,id',
+            'status'      => 'nullable|in:new,in_progress,on_hold,to_close,closed',
+            'assigned_to' => 'nullable|exists:users,id',
         ]);
 
         $impactChanged = $validated['impact'] !== $ticket->impact;
@@ -195,6 +184,9 @@ class TicketController extends Controller
         $ticket->update([
             'impact'             => $validated['impact'] ?? null,
             'status'             => $validated['status'] ?? $ticket->status,
+            'assigned_to'        => array_key_exists('assigned_to', $validated)
+                                        ? $validated['assigned_to']
+                                        : $ticket->assigned_to,
             'ai_labelled_impact' => $impactChanged ? false : $ticket->ai_labelled_impact,
             'closed_at'          => ($validated['status'] === 'closed' && $ticket->status !== 'closed')
                 ? now()

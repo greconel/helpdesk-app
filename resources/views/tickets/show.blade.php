@@ -288,11 +288,21 @@
 
                         <!-- Toegewezen aan -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Toegewezen aan</label>
-                            <div class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600">
-                                {{ $ticket->agent?->name ?? 'Niet toegewezen' }}
-                            </div>
-                            <p class="mt-1.5 text-xs text-gray-400">Toewijzen via het Agents Board (drag & drop)</p>
+                            <label for="assigned_to" class="block text-sm font-medium text-gray-700 mb-2">
+                                Toegewezen aan
+                            </label>
+                            <select name="assigned_to" id="assigned_to" class="w-full rounded-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-sm">
+                                <option value="">Niet toegewezen</option>
+                                @foreach(\App\Models\User::orderBy('name')->get() as $agent)
+                                    <option value="{{ $agent->id }}"
+                                        {{ $ticket->assigned_to == $agent->id ? 'selected' : '' }}>
+                                        {{ $agent->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('assigned_to')
+                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
                         </div>
 
                         <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors text-sm">

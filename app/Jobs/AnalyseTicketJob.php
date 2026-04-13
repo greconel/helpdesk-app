@@ -17,6 +17,7 @@ class AnalyseTicketJob implements ShouldQueue
     use Queueable;
 
     public int $tries = 3;
+    public int $backoff = 60;
 
     public function __construct(public Ticket $ticket) {}
 

@@ -1,57 +1,34 @@
 # AI Labeling Skill
-**Versie:** v1.3
-**Aangemaakt:** 2026-04-02
-**Laatst bijgewerkt:** 2026-04-04
-**Gebaseerd op:** 4 correcties
+**Versie:** v1.0
+**Aangemaakt:** 2026-04-13
+**Gebaseerd op:** 0 correcties
 
 ---
 
 ## Onze definities
 
 ### Labels
-- **bug** — reproduceerbaar defect, iets werkt anders dan verwacht of beloofd
-- **feature request** — klant vraagt om nieuwe of uitgebreide functionaliteit
-- **onderzoek** — probleem is onduidelijk, meer informatie nodig voor classificatie
-- **eigenlijk niet voor ons** — probleem ligt buiten onze verantwoordelijkheid of scope
+- **bug** - reproduceerbaar defect, iets werkt anders dan verwacht of beloofd
+- **feature request** - klant vraagt om nieuwe of uitgebreide functionaliteit
+- **onderzoek** - probleem is onduidelijk, meer informatie nodig voor classificatie
+- **eigenlijk niet voor ons** - probleem ligt buiten onze verantwoordelijkheid of scope
 
 ### Impact
-- **low** — klant kan verder werken, kleine hinder, geen tijdsdruk
-- **medium** — klant heeft hinder maar heeft een workaround beschikbaar
-- **high** — klant ligt stil, productie geblokkeerd, geen workaround mogelijk
+- **low** - klant kan verder werken, kleine hinder, geen tijdsdruk
+- **medium** - klant heeft hinder maar heeft een workaround beschikbaar
+- **high** - klant ligt stil, productie geblokkeerd, geen workaround mogelijk
 
 ---
 
 ## Geleerde regels uit correcties
 
-### Regel 1: Feature requests met specifieke UI-implementatie vereisen onderzoek
-Wanneer een klant een feature request doet en daarbij **specifieke UI-elementen of plaatsing** noemt (bijv. "icoontje rechtsboven", "toggle button in menu"), label dan **zowel [feature request] als [onderzoek]**. De functionele wens is duidelijk (feature request), maar de exacte implementatie en haalbaarheid van de voorgestelde UI vereist technisch onderzoek.
-
-### Regel 2: Inlogproblemen zijn standaard medium impact, tenzij expliciet systeembrede outage
-Wanneer een klant meldt dat zij niet kunnen inloggen, controleer altijd of het gaat om een **volledige productieblokade of slechts hun individuele account**. Bij login-issues zonder bewijs dat het meerdere gebruikers/alle gebruikers treft, label impact als **medium** — de klant is geblokkeerd maar dit is typisch een account/authenticatie-specifiek probleem, niet een systeembrede outage. Alleen upgrade naar high als expliciet vermeld wordt dat het alle gebruikers treft OF dat de hele service/portaal voor iedereen onbereikbaar is.
-
-### Regel 3: Urgentie ("zo snel mogelijk", "dringend") is geen impact-modifier
-Urgentie-taal in het verzoek (bijv. "zo snel mogelijk helpen", "dringend") verandert niet de werkelijke impact van het probleem. Impact wordt bepaald door **of de klant kan doorwerken** (low/medium) of **volledig stil ligt** (high), niet door hun gevoelde tijdsdruk. Een individueel inlogprobleem blijft medium impact, ook als de klant aangeeft dat het urgent is.
+*Nog geen regels geleerd - systeem is gestart.*
 
 ---
 
 ## Correctie voorbeelden
 
-### Voorbeeld 1: Feature met UI-specificatie
-**Ticket:** "Donkere modus toevoegen aan het dashboard"  
-**Beschrijving:** "Ik wil een donkere modus optie hebben in mijn project. Ik wil daarvoor een icoontje rechtsboven, een soort toggle."  
-**AI labels:** [feature request]  
-**Agent labels:** [feature request, onderzoek]  
-**Impact:** low (correct)  
-**Waarom gecorrigeerd:** Klant specificeert niet alleen de functionaliteit (donkere modus) maar ook de gewenste implementatie (icoontje rechtsboven, toggle). Dit vereist onderzoek naar technische haalbaarheid en of deze UI-keuze past binnen het bestaande design.
-
-### Voorbeeld 2: Individueel inlogprobleem met urgentie
-**Ticket:** "Kan niet inloggen op het klantportaal"  
-**Beschrijving:** "Kan niet inloggen op portaal. Zo snel mogelijk helpen."  
-**AI labels:** [bug]  
-**AI impact:** medium  
-**Agent labels:** [bug]  
-**Agent impact:** high  
-**Waarom gecorrigeerd:** Hoewel de klant urgentie aangeeft ("zo snel mogelijk helpen"), gaat het om een individuele inloggingsfout. Urgentie-taal is geen impact-modifier. Dit blijft medium impact — de klant persoonlijk kan niet werken, maar er is geen bewijs van een systeembrede outage. High impact geldt alleen als het portaal voor alle gebruikers down is.
+*Nog geen voorbeelden beschikbaar.*
 
 ---
 

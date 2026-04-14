@@ -241,22 +241,46 @@
                     </div>
 
                     <div>
-                        <label for="labels" class="block text-sm font-medium text-gray-700 mb-1.5">
+                        <label for="labels_picker" class="block text-sm font-medium text-gray-700 mb-1.5">
                             Labels
                         </label>
-                        <select name="labels[]" id="labels" multiple
-                            class="w-full rounded-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-sm"
-                            style="min-height: 110px;">
-                            @foreach($labels as $label)
-                                <option value="{{ $label->id }}"
-                                    {{ in_array($label->id, old('labels', [])) ? 'selected' : '' }}>
-                                    {{ $label->name }}
-                                </option>
-                            @endforeach
-                        </select>
-                        <p class="mt-1.5 text-xs text-gray-400">
-                            Houd Ctrl (of Cmd) ingedrukt voor meerdere labels
+
+                        <div class="mt-2 mb-3 flex flex-wrap gap-2" x-show="selectedLabelIds.length > 0" x-cloak>
+                            <template x-for="labelId in selectedLabelIds" :key="labelId">
+                                <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-100 text-gray-700 border border-gray-200 text-xs font-medium">
+                                    <span x-text="labelName(labelId)"></span>
+                                    <button type="button"
+                                        @click="removeSelectedLabel(labelId)"
+                                        class="text-gray-400 hover:text-red-500 transition-colors"
+                                        aria-label="Label verwijderen">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                        </svg>
+                                    </button>
+                                    <input type="hidden" name="labels[]" :value="labelId">
+                                </div>
+                            </template>
+                        </div>
+
+                        <p class="mt-2 mb-3 text-xs text-gray-400" x-show="selectedLabelIds.length === 0" x-cloak>
+                            Nog geen labels toegevoegd.
                         </p>
+
+                        <div class="flex gap-2">
+                            <select id="labels_picker"
+                                x-model="labelToAdd"
+                                class="w-full rounded-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-sm">
+                                <option value="">Kies een label...</option>
+                                <template x-for="label in availableLabelOptions()" :key="label.id">
+                                    <option :value="label.id" x-text="label.name"></option>
+                                </template>
+                            </select>
+                            <button type="button"
+                                @click="addSelectedLabel()"
+                                class="px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium transition-colors whitespace-nowrap">
+                                Toevoegen
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -308,6 +332,9 @@ function ticketForm() {
         results:          [],
         searching:        false,
         dropdownOpen:     false,
+        labelToAdd:       '',
+        availableLabels:  @js($labels->map(fn($label) => ['id' => $label->id, 'name' => $label->name])->values()),
+        selectedLabelIds: @js(array_map('intval', old('labels', []))),
 
         async searchCustomers() {
             const q = this.customerSearch.trim();
@@ -341,6 +368,32 @@ function ticketForm() {
         clearCustomer() {
             this.selectedCustomer = null;
             this.customerSearch   = '';
+        },
+
+        availableLabelOptions() {
+            return this.availableLabels.filter((label) => {
+                return !this.selectedLabelIds.includes(Number(label.id));
+            });
+        },
+
+        addSelectedLabel() {
+            const labelId = Number(this.labelToAdd);
+            if (!labelId || this.selectedLabelIds.includes(labelId)) {
+                return;
+            }
+
+            this.selectedLabelIds.push(labelId);
+            this.labelToAdd = '';
+        },
+
+        removeSelectedLabel(labelId) {
+            const id = Number(labelId);
+            this.selectedLabelIds = this.selectedLabelIds.filter((current) => current !== id);
+        },
+
+        labelName(labelId) {
+            const found = this.availableLabels.find((label) => Number(label.id) === Number(labelId));
+            return found ? found.name : 'Onbekend label';
         },
     };
 }

@@ -53,8 +53,13 @@ class AnalyseTicketJob implements ShouldQueue
 
         // Wijs labels toe als nog geen labels aanwezig
         if (!$this->ticket->labels()->exists() && !empty($result['labels'])) {
-            $labels = \App\Models\Label::whereIn('name', $result['labels'])->pluck('id');
-            $this->ticket->labels()->sync($labels);
+            $labels = \App\Models\Label::whereIn('name', $result['labels'])->get();
+
+            $syncData = $labels->mapWithKeys(fn($label) => [
+                $label->id => ['ai_labelled' => true]
+            ])->toArray();
+
+            $this->ticket->labels()->sync($syncData);
             $this->ticket->update(['ai_labelled_labels' => true]);
         }
 

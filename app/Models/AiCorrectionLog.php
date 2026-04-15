@@ -19,12 +19,15 @@ class AiCorrectionLog extends Model
         'ticket_description_snippet',
         'correction_type',
         'processed',
+        'ignore_in_training',  
+        'ignore_reason', 
     ];
 
     protected $casts = [
         'ai_labels'    => 'array',
         'agent_labels' => 'array',
         'processed'    => 'boolean',
+        'ignore_in_training' => 'boolean',
     ];
 
     public function ticket(): BelongsTo

@@ -10,23 +10,13 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Ticket management controller
- * Twee flows: customer self-service (create) en agent internal (agentCreate)
- */
 class TicketController extends Controller
 {
-    /**
-     * Toon customer ticketaanmaakformulier
-     */
     public function create()
     {
         return view('tickets.create');
     }
 
-    /**
-     * Sla customer ticket op (transaction: alles of niets)
-     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -72,9 +62,6 @@ class TicketController extends Controller
         }
     }
 
-    /**
-     * Toon agent ticketaanmaakformulier (volledige controle)
-     */
     public function agentCreate()
     {
         $labels = Label::orderBy('name')->get();
@@ -83,9 +70,6 @@ class TicketController extends Controller
         return view('tickets.agent-create', compact('labels', 'agents'));
     }
 
-    /**
-     * Sla agent-ticket op (status auto in_progress als assigned, anders new)
-     */
     public function agentStore(Request $request)
     {
         $validated = $request->validate([
@@ -153,9 +137,6 @@ class TicketController extends Controller
         }
     }
 
-    /**
-     * AJAX: Zoek klanten op naam of email
-     */
     public function searchCustomers(Request $request)
     {
         $query = $request->get('q', '');
@@ -214,8 +195,12 @@ class TicketController extends Controller
     public function show(Ticket $ticket)
     {
         $ticket->load(['customer', 'agent', 'labels', 'timeLogs.user']);
-        $allLabels = Label::orderBy('name')->get();
-        return view('tickets.show', compact('ticket', 'allLabels'));
+        $allLabels     = Label::orderBy('name')->get();
+        $correctionLog = \App\Models\AiCorrectionLog::where('ticket_id', $ticket->id)
+            ->latest()
+            ->first();
+
+        return view('tickets.show', compact('ticket', 'allLabels', 'correctionLog'));
     }
 
     public function move(Request $request, Ticket $ticket)

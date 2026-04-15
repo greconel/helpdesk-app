@@ -36,4 +36,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/tickets/{ticket}/reply', [App\Http\Controllers\TicketReplyController::class, 'store'])->name('tickets.reply');
     Route::get('/corrections/export', [App\Http\Controllers\CorrectionExportController::class, 'export'])
     ->name('corrections.export');
+
+    Route::patch('/corrections/{log}/ignore', [App\Http\Controllers\AiCorrectionController::class, 'toggleIgnore'])
+    ->name('corrections.ignore');
 });

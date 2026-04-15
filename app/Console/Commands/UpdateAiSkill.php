@@ -19,6 +19,7 @@ class UpdateAiSkill extends Command
         $this->info('📊 Onverwerkte correcties ophalen...');
 
         $corrections = AiCorrectionLog::where('processed', false)
+            ->where('ignore_in_training', false)
             ->with(['ticket', 'agent'])
             ->orderBy('created_at', 'asc')
             ->get();

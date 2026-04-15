@@ -81,7 +81,7 @@
                                 @foreach($ticket->labels as $label)
                                     <span class="relative px-3 py-1.5 inline-flex text-xs font-semibold rounded-lg bg-gray-100 text-gray-700 border border-gray-200">
                                         {{ $label->name }}
-                                        @if($ticket->ai_labelled_labels)
+                                        @if($label->pivot->ai_labelled)
                                             <span class="absolute -top-1.5 -right-1.5 text-[9px] font-bold bg-purple-600 text-white rounded-full px-1 leading-4">
                                                 AI
                                             </span>
@@ -519,6 +519,98 @@
                         </button>
                     </form>
                 </div>
+                @if(isset($correctionLog) && $correctionLog)
+                <div class="bg-white rounded-lg border border-gray-200 p-6"
+                    x-data="{ ignore: {{ $correctionLog->ignore_in_training ? 'true' : 'false' }} }">
+
+                    <h3 class="text-base font-semibold text-gray-900 mb-1 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a5 5 0 01-1.651.928l-1.39.39A2 2 0 019.56 18h-.12a2 2 0 01-1.907-1.383l-.39-1.39a5 5 0 01.928-1.651l.347-.347z"/>
+                        </svg>
+                        AI Training
+                    </h3>
+
+                    <p class="text-xs text-gray-500 mb-4">
+                        De AI heeft een voorstel gedaan dat gecorrigeerd werd.
+                        Markeer als uitzondering als de AI dit <em>niet</em> moet leren.
+                    </p>
+
+                    {{-- AI vs Agent vergelijking --}}
+                    <div class="bg-gray-50 rounded-lg p-3 mb-4 text-xs space-y-1.5 border border-gray-200">
+                        <div class="flex gap-2">
+                            <span class="text-purple-600 font-semibold w-16 flex-shrink-0">AI:</span>
+                            <span class="text-gray-700">
+                                Impact: <strong>{{ $correctionLog->ai_impact ?? '—' }}</strong>
+                                &nbsp;·&nbsp;
+                                Labels: <strong>{{ implode(', ', $correctionLog->ai_labels ?? []) ?: '—' }}</strong>
+                            </span>
+                        </div>
+                        <div class="flex gap-2">
+                            <span class="text-blue-600 font-semibold w-16 flex-shrink-0">Agent:</span>
+                            <span class="text-gray-700">
+                                Impact: <strong>{{ $correctionLog->agent_impact ?? '—' }}</strong>
+                                &nbsp;·&nbsp;
+                                Labels: <strong>{{ implode(', ', $correctionLog->agent_labels ?? []) ?: '—' }}</strong>
+                            </span>
+                        </div>
+                    </div>
+
+                    <form method="POST" action="{{ route('corrections.ignore', $correctionLog) }}">
+                        @csrf
+                        @method('PATCH')
+                        <input type="hidden" name="ignore_in_training" :value="ignore ? '1' : '0'">
+
+                        {{-- Toggle --}}
+                        <label class="flex items-center justify-between cursor-pointer mb-3">
+                            <span class="text-sm font-medium text-gray-700">Uitzondering — niet leren</span>
+                            <button type="button"
+                                @click="ignore = !ignore"
+                                :class="ignore ? 'bg-amber-500' : 'bg-gray-200'"
+                                class="relative w-11 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-1">
+                                <span
+                                    :class="ignore ? 'translate-x-5' : 'translate-x-1'"
+                                    class="block w-4 h-4 bg-white rounded-full shadow transition-transform">
+                                </span>
+                            </button>
+                        </label>
+
+                        {{-- Reden --}}
+                        <div x-show="ignore" x-cloak class="mb-3">
+                            <label class="block text-xs font-medium text-gray-600 mb-1">
+                                Reden <span class="text-gray-400">(optioneel)</span>
+                            </label>
+                            <textarea
+                                name="ignore_reason"
+                                rows="2"
+                                placeholder="Bijv: klant heeft betalingsachterstand, impact bewust verlaagd…"
+                                class="w-full rounded-lg border-gray-300 focus:border-amber-400 focus:ring-amber-400 text-xs resize-none"
+                            >{{ $correctionLog->ignore_reason }}</textarea>
+                        </div>
+
+                        {{-- Huidige status badge --}}
+                        @if($correctionLog->ignore_in_training)
+                            <div class="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
+                                <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M12 3a9 9 0 100 18A9 9 0 0012 3z"/>
+                                </svg>
+                                AI leert niet van deze correctie
+                                @if($correctionLog->ignore_reason)
+                                    · <em>{{ $correctionLog->ignore_reason }}</em>
+                                @endif
+                            </div>
+                        @endif
+
+                        <button type="submit"
+                            :class="ignore
+                                ? 'bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-200'
+                                : 'bg-gray-100 hover:bg-gray-200 text-gray-700'"
+                            class="w-full text-sm font-medium py-2 px-4 rounded-lg transition-colors border">
+                            Opslaan
+                        </button>
+                    </form>
+                </div>
+                @endif
 
                 <!-- Ticket tijdlijn -->
                 <div class="bg-white rounded-lg border border-gray-200 p-6">

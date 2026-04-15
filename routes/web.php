@@ -42,4 +42,7 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/ai-skill', [App\Http\Controllers\AiSkillController::class, 'index'])->name('ai-skill.index');
     Route::post('/ai-skill', [App\Http\Controllers\AiSkillController::class, 'update'])->name('ai-skill.update');
+
+    Route::get('/customers', [App\Http\Controllers\CustomerController::class, 'index'])->name('customers.index');
+    Route::patch('/customers/{customer}', [App\Http\Controllers\CustomerController::class, 'update'])->name('customers.update');
 });

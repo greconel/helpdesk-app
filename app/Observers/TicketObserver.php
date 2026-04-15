@@ -12,38 +12,47 @@ class TicketObserver
 {
     public function updated(Ticket $ticket): void
     {
-        // Motion integratie tijdelijk uitgeschakeld
-        
-        // $motion = app(MotionService::class);
-        // $assigneeVeranderd = $ticket->wasChanged('assigned_to');
-        // $statusVeranderd   = $ticket->wasChanged('status');
-
-        // if ($statusVeranderd && $ticket->status === 'closed' && $ticket->motion_task_id) {
-        //     $motion->completeTask($ticket->motion_task_id);
-        // }
-
-        // if ($assigneeVeranderd && $ticket->assigned_to && !$ticket->motion_task_id) {
-        //     $agent = $ticket->agent;
-        //     if ($agent?->motion_user_id) {
-        //         $taskId = $motion->createTask(
-        //             $ticket->subject,
-        //             $ticket->description,
-        //             $agent->motion_user_id
-        //         );
-        //         if ($taskId) {
-        //             $ticket->updateQuietly(['motion_task_id' => $taskId]);
-        //         }
-        //     }
-        // }
-
-        // if ($assigneeVeranderd && $ticket->assigned_to && $ticket->motion_task_id) {
-        //     $agent = $ticket->agent;
-        //     if ($agent?->motion_user_id) {
-        //         $motion->updateAssignee($ticket->motion_task_id, $agent->motion_user_id);
-        //     }
-        // }
-
         $this->detectAiCorrection($ticket);
+        $this->handleMotionIntegration($ticket);
+    }
+    private function handleMotionIntegration(Ticket $ticket): void
+    {
+        $motion = app(MotionService::class);
+
+        $assigneeChanged = $ticket->wasChanged('assigned_to');
+        $statusChanged   = $ticket->wasChanged('status');
+
+        // Ticket gesloten → taak afronden in Motion
+        if ($statusChanged && $ticket->status === 'closed' && $ticket->motion_task_id) {
+            $motion->completeTask($ticket->motion_task_id);
+            return;
+        }
+
+        // Nieuwe toewijzing aan agent → maak Motion taak aan (alleen als nog geen taak bestaat)
+        if ($assigneeChanged && $ticket->assigned_to && !$ticket->motion_task_id) {
+            $agent = $ticket->agent;
+        if ($agent?->motion_user_id) {
+            $projectId = $ticket->customer?->motion_project_id;
+            $taskId = $motion->createTask(
+                "[{$ticket->ticket_number}] {$ticket->subject}",
+                substr(strip_tags($ticket->description), 0, 500),
+                $agent->motion_user_id,
+                $projectId
+            );
+                if ($taskId) {
+                    $ticket->updateQuietly(['motion_task_id' => $taskId]);
+                }
+            }
+            return;
+        }
+
+        // Agent gewijzigd op bestaande taak → update assignee in Motion
+        if ($assigneeChanged && $ticket->assigned_to && $ticket->motion_task_id) {
+            $agent = $ticket->agent;
+            if ($agent?->motion_user_id) {
+                $motion->updateAssignee($ticket->motion_task_id, $agent->motion_user_id);
+            }
+        }
     }
 
     private function detectAiCorrection(Ticket $ticket): void

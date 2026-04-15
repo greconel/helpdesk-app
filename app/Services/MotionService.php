@@ -17,20 +17,26 @@ class MotionService
         $this->workspaceId = config('services.motion.workspace_id');
     }
 
-    public function createTask(string $title, string $description, string $motionUserId): ?string
+    public function createTask(string $title, string $description, string $motionUserId, ?string $projectId = null): ?string
     {
         try {
+            $payload = [
+                'name'        => $title,
+                'description' => $description,
+                'workspaceId' => $this->workspaceId,
+                'assigneeId'  => $motionUserId,
+                'status'      => 'Todo',
+            ];
+
+            if ($projectId) {
+                $payload['projectId'] = $projectId;
+            }
+
             $response = Http::withHeaders(['X-API-Key' => $this->apiKey])
-                ->post("{$this->baseUrl}/tasks", [
-                    'name'        => $title,
-                    'description' => $description,
-                    'workspaceId' => $this->workspaceId,
-                    'assigneeId'  => $motionUserId,
-                    'status'      => 'Todo',
-                ]);
+                ->post("{$this->baseUrl}/tasks", $payload);
 
             if ($response->successful()) {
-                return $response->json('task.id');
+                return $response->json('task.id') ?? $response->json('id');
             }
 
             Log::error('Motion createTask mislukt', ['response' => $response->body()]);
@@ -74,5 +80,19 @@ class MotionService
         } catch (\Throwable $e) {
             Log::error('Motion completeTask exception', ['message' => $e->getMessage()]);
         }
+    }
+    public function getProjects(): array
+    {
+        $response = Http::withHeaders(['X-API-Key' => $this->apiKey])
+            ->get("{$this->baseUrl}/projects", [
+                'workspaceId' => $this->workspaceId,
+            ]);
+
+        if (!$response->successful()) {
+            Log::error('Motion getProjects mislukt', ['body' => $response->body()]);
+            return [];
+        }
+
+        return $response->json('projects', []);
     }
 }

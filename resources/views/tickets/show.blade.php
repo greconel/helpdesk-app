@@ -349,6 +349,17 @@
                 <div class="bg-white rounded-lg border border-gray-200 p-6">
                     <h3 class="text-base font-semibold text-gray-900 mb-4">Klant</h3>
                     <div class="space-y-3">
+                        @if($ticket->customer->motion_project_id)
+                        <div>
+                            <div class="text-sm font-medium text-gray-500 mb-1">Motion Project</div>
+                            <div class="text-sm text-gray-900 flex items-center gap-2">
+                                <svg class="w-3.5 h-3.5 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                                </svg>
+                                {{ $motionProjectName ?? $ticket->customer->motion_project_id }}
+                            </div>
+                        </div>
+                    @endif
                         <div>
                             <div class="text-sm font-medium text-gray-500 mb-1">Naam</div>
                             <div class="text-sm text-gray-900">{{ $ticket->customer->name }}</div>
@@ -611,6 +622,19 @@
                     </form>
                 </div>
                 @endif
+                @if($ticket->motion_task_id)
+                <div class="bg-white rounded-lg border border-gray-200 p-6">
+                    <h3 class="text-base font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                        </svg>
+                        Motion Taak
+                    </h3>
+                    <p class="text-xs text-gray-500">
+                        Taak ID: <span class="font-mono text-gray-700">{{ $ticket->motion_task_id }}</span>
+                    </p>
+                </div>
+                @endif
 
                 <!-- Ticket tijdlijn -->
                 <div class="bg-white rounded-lg border border-gray-200 p-6">
@@ -691,6 +715,7 @@
             </div>
         </div>
     </div>
+
 
     <style>
         [x-cloak] { display: none !important; }

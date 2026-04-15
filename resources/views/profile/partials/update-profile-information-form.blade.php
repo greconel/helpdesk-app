@@ -46,6 +46,23 @@
                 </div>
             @endif
         </div>
+        {{-- Motion User ID --}}
+        <div>
+            <x-input-label for="motion_user_id" :value="__('Motion User ID')" />
+            <x-text-input 
+                id="motion_user_id" 
+                name="motion_user_id" 
+                type="text" 
+                class="mt-1 block w-full" 
+                :value="old('motion_user_id', $user->motion_user_id)" 
+                placeholder="bijv. abc123xyz"
+                autocomplete="off"
+            />
+            <p class="mt-1 text-xs text-gray-500">
+                Te vinden in Motion via Instellingen → Profiel → User ID. Vereist voor taak-toewijzing.
+            </p>
+            <x-input-error class="mt-2" :messages="$errors->get('motion_user_id')" />
+        </div>
 
         <div class="flex items-center gap-4">
             <x-primary-button>{{ __('Save') }}</x-primary-button>

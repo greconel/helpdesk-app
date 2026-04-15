@@ -200,7 +200,24 @@ class TicketController extends Controller
             ->latest()
             ->first();
 
-        return view('tickets.show', compact('ticket', 'allLabels', 'correctionLog'));
+        // Motion projectnaam ophalen
+        $motionProjectName = null;
+        if ($ticket->customer?->motion_project_id) {
+            try {
+                $motion = app(\App\Services\MotionService::class);
+                $projects = $motion->getProjects();
+                foreach ($projects as $project) {
+                    if ($project['id'] === $ticket->customer->motion_project_id) {
+                        $motionProjectName = $project['name'];
+                        break;
+                    }
+                }
+            } catch (\Throwable $e) {
+                // Motion niet beschikbaar
+            }
+        }
+
+        return view('tickets.show', compact('ticket', 'allLabels', 'correctionLog', 'motionProjectName'));
     }
 
     public function move(Request $request, Ticket $ticket)

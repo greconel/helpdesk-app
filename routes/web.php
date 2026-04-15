@@ -39,4 +39,7 @@ Route::middleware(['auth'])->group(function () {
 
     Route::patch('/corrections/{log}/ignore', [App\Http\Controllers\AiCorrectionController::class, 'toggleIgnore'])
     ->name('corrections.ignore');
+
+    Route::get('/ai-skill', [App\Http\Controllers\AiSkillController::class, 'index'])->name('ai-skill.index');
+    Route::post('/ai-skill', [App\Http\Controllers\AiSkillController::class, 'update'])->name('ai-skill.update');
 });

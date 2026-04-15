@@ -1,7 +1,7 @@
 # AI Labeling Skill
-**Versie:** v1.0
+**Versie:** v1.1
 **Aangemaakt:** 2026-04-13
-**Gebaseerd op:** 0 correcties
+**Gebaseerd op:** 2 correcties
 
 ---
 
@@ -22,16 +22,32 @@
 
 ## Geleerde regels uit correcties
 
-*Nog geen regels geleerd - systeem is gestart.*
+1. **Inlogproblemen zijn meestal bugs, niet alleen onderzoek** — Wanneer een klant meldt dat inloggen niet werkt, label dit als [onderzoek, bug] in plaats van alleen [onderzoek]. Dit is een concrete fout met hoge impact, ook als details ontbreken. Het feit dat inloggen niet werkt duidt op een defect in het systeem.
+
+2. **Urgentie in bericht ("zo snel mogelijk") bevestigt high impact** — Wanneer een klant expliciet urgentie uitdrukt in combinatie met niet kunnen inloggen, bevestigt dit dat impact=high correct is. Dit is geen reden om het om te buigen naar iets anders.
+
+3. **Inlogproblemen vereisen altijd bug-label** — Authenticatie- en inlogproblemen zijn bijna altijd reproduceerbare defecten. Voeg altijd [bug] toe wanneer dit onderwerp wordt gemeld, ook al ontbreken technische details.
 
 ---
 
 ## Correctie voorbeelden
 
-*Nog geen voorbeelden beschikbaar.*
+### Voorbeeld 1: Inlogprobleem met urgentie
+**Ticket:** "Kan niet inloggen op het klantportaal"
+**Beschrijving:** "Ik kan niet inloggen, los het zo snel mogelijk op."
+**Correcte labels:** [onderzoek, bug]
+**Correcte impact:** high
+**Reden:** Inlogproblemen zijn reproduceerbare defecten (bug). De urgentie in het bericht ondersteunt high impact.
+
+### Voorbeeld 2: Inlogprobleem duplicate
+**Ticket:** "Kan niet inloggen op het klantportaal"
+**Beschrijving:** "Ik kan niet inloggen op het klantenportaal, los dit zo snel mogelijk op."
+**Correcte labels:** [onderzoek, bug]
+**Correcte impact:** high
+**Reden:** Identiek patroon — inlogproblemen krijgen altijd [bug] label, ook bij minimale details.
 
 ---
 
 ## Moeilijke gevallen
 
-*Wordt aangevuld naarmate het systeem leert.*
+- **Inlogproblemen met vage beschrijving** — Etiket als [onderzoek, bug] omdat inloggen niet werken zelf al voldoende concreet is. Dit is geen onderzoekskwestie maar een reproduceerbare fout.

@@ -71,6 +71,20 @@
                     </span>
                 </a>
 
+                <!-- AI Skill -->
+                <a href="{{ route('ai-skill.index') }}"
+                title="AI Skill Beheer"
+                class="group relative flex items-center justify-center w-10 h-10 rounded-lg transition-colors
+                        {{ request()->routeIs('ai-skill.*') ? 'bg-purple-50 text-purple-700' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900' }}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a5 5 0 01-1.651.928l-1.39.39A2 2 0 019.56 18h-.12a2 2 0 01-1.907-1.383l-.39-1.39a5 5 0 01.928-1.651l.347-.347z"/>
+                    </svg>
+                    <span class="pointer-events-none absolute left-full ml-2 px-2 py-1 text-xs font-medium text-white bg-gray-900 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                        AI Skill Beheer
+                    </span>
+                </a>
+
             </nav>
 
             <!-- User avatar + logout onderaan -->

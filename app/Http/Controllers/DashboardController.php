@@ -28,7 +28,7 @@ class DashboardController extends Controller
         foreach (array_keys($statuses) as $status) {
             $ticketsByStatus[$status] = Ticket::with(['customer', 'agent', 'labels'])
                 ->where('status', $status)
-                ->orderBy('created_at', 'desc')
+                ->orderBy('updated_at', 'desc')
                 ->get();
         }
 

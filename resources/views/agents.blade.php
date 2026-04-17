@@ -179,7 +179,7 @@
                     $agentTickets = $agent->assignedTickets()
                         ->with(['customer', 'labels'])
                         ->whereIn('status', ['new', 'in_progress', 'on_hold', 'to_close'])
-                        ->orderBy('created_at', 'desc')
+                        ->orderBy('updated_at', 'desc')
                         ->get();
                 @endphp
 

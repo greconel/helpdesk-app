@@ -15,6 +15,7 @@ class TicketObserver
         $this->detectAiCorrection($ticket);
         $this->handleMotionIntegration($ticket);
     }
+
     private function handleMotionIntegration(Ticket $ticket): void
     {
         $motion = app(MotionService::class);
@@ -22,8 +23,13 @@ class TicketObserver
         $assigneeChanged = $ticket->wasChanged('assigned_to');
         $statusChanged   = $ticket->wasChanged('status');
 
-        // Ticket gesloten → taak afronden in Motion
+        // Ticket gesloten → tijd updaten en taak afronden in Motion
         if ($statusChanged && $ticket->status === 'closed' && $ticket->motion_task_id) {
+            $ticket->loadMissing('timeLogs');
+            $totaalMinuten = $ticket->timeLogs->sum('duration_minutes');
+            if ($totaalMinuten > 0) {
+                $motion->updateDuration($ticket->motion_task_id, $totaalMinuten);
+            }
             $motion->completeTask($ticket->motion_task_id);
             return;
         }
@@ -31,14 +37,16 @@ class TicketObserver
         // Nieuwe toewijzing aan agent → maak Motion taak aan (alleen als nog geen taak bestaat)
         if ($assigneeChanged && $ticket->assigned_to && !$ticket->motion_task_id) {
             $agent = $ticket->agent;
-        if ($agent?->motion_user_id) {
-            $projectId = $ticket->customer?->motion_project_id;
-            $taskId = $motion->createTask(
-                "[{$ticket->ticket_number}] {$ticket->subject}",
-                substr(strip_tags($ticket->description), 0, 500),
-                $agent->motion_user_id,
-                $projectId
-            );
+            if ($agent?->motion_user_id) {
+                $projectId = $ticket->customer?->motion_project_id;
+                $taskId = $motion->createTask(
+                    "[{$ticket->ticket_number}] {$ticket->subject}",
+                    $ticket->description,
+                    $agent->motion_user_id,
+                    $projectId,
+                    $ticket->impact,
+                    $ticket->labels->pluck('name')->toArray()
+                );
                 if ($taskId) {
                     $ticket->updateQuietly(['motion_task_id' => $taskId]);
                 }

@@ -17,14 +17,31 @@ class MotionService
         $this->workspaceId = config('services.motion.workspace_id');
     }
 
-    public function createTask(string $title, string $description, string $motionUserId, ?string $projectId = null): ?string
+    public function createTask(string $title, string $description, string $motionUserId, ?string $projectId = null, ?string $impact = null, array $labels = []): ?string
     {
         try {
+            $motionPriority = match($impact) {
+                'high'   => 'ASAP',
+                'medium' => 'HIGH',
+                'low'    => 'MEDIUM',
+                default  => 'MEDIUM',
+            };
+
+            $labelTekst = !empty($labels) ? implode(', ', $labels) : '—';
+            $impactTekst = $impact ? ucfirst($impact) : '—';
+
+            $beschrijving = substr(strip_tags($description), 0, 300);
+
+            $body = "**[SUPPORT]** · Impact: {$impactTekst} · Labels: {$labelTekst}
+
+    {$beschrijving}";
+
             $payload = [
                 'name'        => $title,
-                'description' => $description,
+                'description' => $body,
                 'workspaceId' => $this->workspaceId,
                 'assigneeId'  => $motionUserId,
+                'priority'    => $motionPriority,
                 'status'      => 'Todo',
             ];
 
@@ -79,6 +96,22 @@ class MotionService
 
         } catch (\Throwable $e) {
             Log::error('Motion completeTask exception', ['message' => $e->getMessage()]);
+        }
+    }
+    public function updateDuration(string $motionTaskId, int $minutes): void
+    {
+        try {
+            $response = Http::withHeaders(['X-API-Key' => $this->apiKey])
+                ->patch("{$this->baseUrl}/tasks/{$motionTaskId}", [
+                    'duration' => $minutes,
+                ]);
+
+            if (!$response->successful()) {
+                Log::error('Motion updateDuration mislukt', ['response' => $response->body()]);
+            }
+
+        } catch (\Throwable $e) {
+            Log::error('Motion updateDuration exception', ['message' => $e->getMessage()]);
         }
     }
     public function getProjects(): array

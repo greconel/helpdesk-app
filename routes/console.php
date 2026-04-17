@@ -14,3 +14,6 @@ Schedule::command('mail:process')->everyMinute();
 // Update het AI skill bestand elke nacht om 02:00
 // Alleen als er minimaal 5 nieuwe correcties zijn
 Schedule::command('ai:update-skill')->dailyAt('02:00');
+
+// Synchroniseer Motion taakstatussen naar tickets (elke 5 minuten)
+Schedule::command('motion:sync')->everyFiveMinutes();

@@ -128,4 +128,30 @@ class MotionService
 
         return $response->json('projects', []);
     }
+    public function getTask(string $motionTaskId): ?array
+    {
+        try {
+            $response = Http::withHeaders(['X-API-Key' => $this->apiKey])
+                ->get("{$this->baseUrl}/tasks/{$motionTaskId}");
+
+            if ($response->status() === 404) {
+                return null;
+            }
+
+            if (!$response->successful()) {
+                Log::error('Motion getTask mislukt', [
+                    'task_id' => $motionTaskId,
+                    'status'  => $response->status(),
+                ]);
+                return null;
+            }
+
+            // De API geeft de taak direct terug, of genest onder 'task'
+            return $response->json('task') ?? $response->json();
+
+        } catch (\Throwable $e) {
+            Log::error('Motion getTask exception', ['message' => $e->getMessage()]);
+            return null;
+        }
+    }
 }

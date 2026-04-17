@@ -12,56 +12,6 @@ use Illuminate\Support\Facades\DB;
 
 class TicketController extends Controller
 {
-    public function create()
-    {
-        return view('tickets.create');
-    }
-
-    public function store(Request $request)
-    {
-        $validated = $request->validate([
-            'name'        => 'required|string|max:255',
-            'email'       => 'required|email|max:255',
-            'subject'     => 'required|string|max:255',
-            'description' => 'required|string',
-        ], [
-            'name.required'        => 'Naam is verplicht',
-            'email.required'       => 'E-mailadres is verplicht',
-            'email.email'          => 'Voer een geldig e-mailadres in',
-            'subject.required'     => 'Onderwerp is verplicht',
-            'description.required' => 'Beschrijving is verplicht',
-        ]);
-
-        DB::beginTransaction();
-        try {
-            $customer = Customer::firstOrCreate(
-                ['email' => $validated['email']],
-                ['name'  => $validated['name']]
-            );
-
-            $ticket = Ticket::create([
-                'ticket_number' => Ticket::generateTicketNumber(),
-                'subject'       => $validated['subject'],
-                'description'   => $validated['description'],
-                'status'        => 'new',
-                'impact'        => null,
-                'customer_id'   => $customer->id,
-            ]);
-
-            DB::commit();
-
-            event(new TicketCreated($ticket));
-
-            return redirect()
-                ->route('tickets.create')
-                ->with('success', "Uw ticket ({$ticket->ticket_number}) is succesvol aangemaakt.");
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return back()->withInput()->with('error', 'Er is iets misgegaan. Probeer het opnieuw.');
-        }
-    }
-
     public function agentCreate()
     {
         $labels = Label::orderBy('name')->get();

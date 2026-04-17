@@ -9,9 +9,6 @@ Route::get('/', function () {
     return redirect()->route('login');
 });
 
-Route::get('/tickets/create', [TicketController::class, 'create'])->name('tickets.create');
-Route::post('/tickets', [TicketController::class, 'store'])->name('tickets.store');
-
 require __DIR__.'/auth.php';
 
 Route::middleware(['auth'])->group(function () {

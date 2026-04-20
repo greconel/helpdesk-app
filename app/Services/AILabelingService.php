@@ -6,14 +6,10 @@ use App\Models\AiAnalysis;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
-/**
- * AI-service voor ticket analyse via Claude API
- * Wijst automatisch impact (low/medium/high) en labels toe
- */
 class AILabelingService
 {
     private string $apiKey;
-    private string $model = 'claude-haiku-4-5-20251001'; // was: claude-sonnet-4-5-20250929
+    private string $model = 'claude-haiku-4-5-20251001';
     private string $skillVersion = 'v1.0';
 
     public function __construct()
@@ -21,21 +17,12 @@ class AILabelingService
         $this->apiKey = config('services.anthropic.key');
     }
 
-    /**
-     * Analyseer ticket en retourneer impact + labels
-     *
-     * @param string $subject Ticket onderwerp
-     * @param string $description Ticket beschrijving
-     * @param int $ticketId Ticket ID (0 = niet opslaan)
-     * @return array|null ['impact' => ..., 'labels' => ...] of null bij fout
-     */
-    public function analyse(string $subject, string $description, int $ticketId): ?array
+    public function analyse(string $subject, string $description, int $ticketId, ?string $customerName = null, ?string $motionProjectId = null): ?array
     {
         $skill  = $this->loadSkill();
-        $prompt = $this->buildPrompt($subject, $description, $skill);
+        $prompt = $this->buildPrompt($subject, $description, $skill, $customerName, $motionProjectId);
 
         try {
-            // Call Anthropic API
             $response = Http::withHeaders([
                 'x-api-key'         => $this->apiKey,
                 'anthropic-version' => '2023-06-01',
@@ -51,7 +38,6 @@ class AILabelingService
             if (!$response->successful()) {
                 $errorType = $response->json('error.type');
 
-                // Bij overload: gooi exception zodat de queue job het opnieuw probeert
                 if ($errorType === 'overloaded_error') {
                     throw new \RuntimeException('Anthropic API overloaded — retry later');
                 }
@@ -60,7 +46,6 @@ class AILabelingService
                 return $this->fallbackAnalyse($subject, $description, $ticketId);
             }
 
-            // Parse JSON response (strip markdown code blocks)
             $content = $response->json('content.0.text');
             $content = preg_replace('/```json\s*/i', '', $content);
             $content = preg_replace('/```\s*/i', '', $content);
@@ -73,7 +58,6 @@ class AILabelingService
                 return $this->fallbackAnalyse($subject, $description, $ticketId);
             }
 
-            // Sla result op in database
             if ($ticketId > 0) {
                 AiAnalysis::updateOrCreate(
                     ['ticket_id' => $ticketId],
@@ -88,7 +72,6 @@ class AILabelingService
             return $result;
 
         } catch (\RuntimeException $e) {
-            // Overload exceptions opnieuw gooien zodat de queue job retried
             throw $e;
         } catch (\Throwable $e) {
             Log::error('AILabelingService exception', ['error' => $e->getMessage()]);
@@ -96,14 +79,10 @@ class AILabelingService
         }
     }
 
-    /**
-     * Eenvoudige keyword-gebaseerde fallback als de API niet bereikbaar is
-     */
     private function fallbackAnalyse(string $subject, string $description, int $ticketId): ?array
     {
         $text = strtolower($subject . ' ' . $description);
 
-        // Impact bepalen
         $impact = 'low';
         if (preg_match('/stil|blokk|urgent|asap|niet meer|crash|down|werkt niet|productie/i', $text)) {
             $impact = 'high';
@@ -111,7 +90,6 @@ class AILabelingService
             $impact = 'medium';
         }
 
-        // Label bepalen
         $labels = [];
         if (preg_match('/fout|bug|werkt niet|error|crash|defect|verkeerd/i', $text)) {
             $labels[] = 'bug';
@@ -133,7 +111,6 @@ class AILabelingService
 
         Log::info("Ticket #{$ticketId}: fallback analyse gebruikt (API onbereikbaar)", $result);
 
-        // Sla ook fallback resultaat op in de database
         if ($ticketId > 0) {
             AiAnalysis::updateOrCreate(
                 ['ticket_id' => $ticketId],
@@ -148,9 +125,6 @@ class AILabelingService
         return $result;
     }
 
-    /**
-     * Laad business rules (skill) uit storage
-     */
     private function loadSkill(): string
     {
         $path = storage_path('ai-skill/labeling-skill.md');
@@ -161,7 +135,6 @@ class AILabelingService
 
         $content = file_get_contents($path);
 
-        // Extract versie nummer
         if (preg_match('/\*\*Versie:\*\*\s*(.+)/m', $content, $matches)) {
             $this->skillVersion = trim($matches[1]);
         }
@@ -169,10 +142,7 @@ class AILabelingService
         return $content;
     }
 
-    /**
-     * Bouw prompt voor ticket analyse
-     */
-    private function buildPrompt(string $subject, string $description, string $skill): string
+    private function buildPrompt(string $subject, string $description, string $skill, ?string $customerName = null, ?string $motionProjectId = null): string
     {
         $cleanDescription = substr(strip_tags($description), 0, 800);
 
@@ -181,11 +151,22 @@ class AILabelingService
             $skillSection = "## Jouw opgebouwde kennis en regels\n\n{$skill}\n\n---\n\n";
         }
 
+        $customerSection = '';
+        if ($customerName) {
+            $customerSection = "Klant: {$customerName}\n";
+        }
+        if ($motionProjectId) {
+            $customerSection .= "Motion project: {$motionProjectId}\n";
+        }
+        if ($customerSection) {
+            $customerSection .= "\n";
+        }
+
         return <<<PROMPT
 Je bent een helpdesk assistent voor een software bedrijf.
 Analyseer het volgende ticket en geef een label en impactwaarde terug.
 
-{$skillSection}Onderwerp: {$subject}
+{$skillSection}{$customerSection}Onderwerp: {$subject}
 Beschrijving: {$cleanDescription}
 
 Kies één of meerdere labels uit deze lijst:
@@ -213,9 +194,6 @@ Als je onvoldoende informatie hebt, geef dan terug:
 PROMPT;
     }
 
-    /**
-     * Valideer AI response
-     */
     private function isValid(?array $result): bool
     {
         if (!$result) return false;

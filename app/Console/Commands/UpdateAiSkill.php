@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Log;
 
 class UpdateAiSkill extends Command
 {
-    protected $signature   = 'ai:update-skill {--dry-run : Toon het nieuwe skill bestand zonder op te slaan} {--min=5 : Minimum aantal correcties voor update}';
+    protected $signature   = 'ai:update-skill {--dry-run : Toon het nieuwe skill bestand zonder op te slaan} {--min=1 : Minimum aantal correcties voor update}';
     protected $description = 'Update het AI skill bestand op basis van agentcorrecties';
 
     public function handle(): int

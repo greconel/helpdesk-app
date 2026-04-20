@@ -32,10 +32,14 @@ class AnalyseTicketJob implements ShouldQueue
             return;
         }
 
+    $this->ticket->loadMissing('customer');
+
         $result = $ai->analyse(
             $this->ticket->subject,
             $this->ticket->description,
-            $this->ticket->id
+            $this->ticket->id,
+            $this->ticket->customer?->name,
+            $this->ticket->customer?->motion_project_id
         );
 
         if (!$result) {

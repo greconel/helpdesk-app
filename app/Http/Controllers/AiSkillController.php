@@ -44,12 +44,29 @@ class AiSkillController extends Controller
             copy($this->skillPath, $backupPath);
         }
 
+        // Versie ophogen
+        $content = $validated['skill_content'];
+        $content = preg_replace_callback(
+            '/\*\*Versie:\*\*\s*v(\d+)\.(\d+)/m',
+            function ($matches) {
+                return '**Versie:** v' . $matches[1] . '.' . ($matches[2] + 1);
+            },
+            $content
+        );
+
+        // Datum bijwerken
+        $content = preg_replace(
+            '/\*\*Laatst bijgewerkt:\*\*.*$/m',
+            '**Laatst bijgewerkt:** ' . now()->format('Y-m-d'),
+            $content
+        );
+
         if (!is_dir(dirname($this->skillPath))) {
             mkdir(dirname($this->skillPath), 0755, true);
         }
 
-        file_put_contents($this->skillPath, $validated['skill_content']);
+        file_put_contents($this->skillPath, $content);
 
-        return back()->with('success', 'Skill bestand opgeslagen. Backup bewaard.');
+        return back()->with('success', 'Skill bestand opgeslagen en versie bijgewerkt. Backup bewaard.');
     }
 }

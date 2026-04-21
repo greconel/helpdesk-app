@@ -116,6 +116,7 @@
                     <div class="space-y-4 mb-6 max-h-[600px] overflow-y-auto pr-1" id="message-timeline">
                         @forelse($ticket->messages->sortByDesc('sent_at') as $msg)
                             @if($msg->direction === 'outbound')
+                                {{-- Uitgaand bericht (agent → klant) --}}
                                 <div class="flex gap-3 justify-end">
                                     <div class="max-w-[85%]">
                                         <div class="flex items-center gap-2 justify-end mb-1">
@@ -133,10 +134,20 @@
                                         </div>
                                         <div class="bg-blue-50 border border-blue-200 rounded-lg rounded-tr-sm px-4 py-3 text-sm text-gray-800 leading-relaxed">
                                             {!! $msg->body_html !!}
+
+                                            {{-- Bijlagen bij uitgaand bericht --}}
+                                            @if($msg->attachments->count() > 0)
+                                                <div class="mt-3 pt-3 border-t border-blue-200 space-y-2">
+                                                    @foreach($msg->attachments as $attachment)
+                                                        @include('tickets.partials.attachment', ['attachment' => $attachment])
+                                                    @endforeach
+                                                </div>
+                                            @endif
                                         </div>
                                     </div>
                                 </div>
                             @else
+                                {{-- Inkomend bericht (klant → agent) --}}
                                 <div class="flex gap-3">
                                     <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0 mt-1">
                                         <span class="text-xs font-bold text-gray-600">
@@ -157,6 +168,15 @@
                                         </div>
                                         <div class="bg-gray-50 border border-gray-200 rounded-lg rounded-tl-sm px-4 py-3 text-sm text-gray-800 leading-relaxed overflow-x-auto">
                                             {!! $msg->body_html !!}
+
+                                            {{-- Bijlagen bij inkomend bericht --}}
+                                            @if($msg->attachments->count() > 0)
+                                                <div class="mt-3 pt-3 border-t border-gray-200 space-y-2">
+                                                    @foreach($msg->attachments as $attachment)
+                                                        @include('tickets.partials.attachment', ['attachment' => $attachment])
+                                                    @endforeach
+                                                </div>
+                                            @endif
                                         </div>
                                     </div>
                                 </div>
@@ -350,16 +370,16 @@
                     <h3 class="text-base font-semibold text-gray-900 mb-4">Klant</h3>
                     <div class="space-y-3">
                         @if($ticket->customer->motion_project_id)
-                        <div>
-                            <div class="text-sm font-medium text-gray-500 mb-1">Motion Project</div>
-                            <div class="text-sm text-gray-900 flex items-center gap-2">
-                                <svg class="w-3.5 h-3.5 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
-                                </svg>
-                                {{ $motionProjectName ?? $ticket->customer->motion_project_id }}
+                            <div>
+                                <div class="text-sm font-medium text-gray-500 mb-1">Motion Project</div>
+                                <div class="text-sm text-gray-900 flex items-center gap-2">
+                                    <svg class="w-3.5 h-3.5 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                                    </svg>
+                                    {{ $motionProjectName ?? $ticket->customer->motion_project_id }}
+                                </div>
                             </div>
-                        </div>
-                    @endif
+                        @endif
                         <div>
                             <div class="text-sm font-medium text-gray-500 mb-1">Naam</div>
                             <div class="text-sm text-gray-900">{{ $ticket->customer->name }}</div>
@@ -383,45 +403,45 @@
 
                 <!-- Gelogde tijd -->
                 @if($ticket->timeLogs->count() > 0)
-                <div class="bg-white rounded-lg border border-gray-200 p-6">
-                    <h3 class="text-base font-semibold text-gray-900 mb-4">Gelogde tijd</h3>
+                    <div class="bg-white rounded-lg border border-gray-200 p-6">
+                        <h3 class="text-base font-semibold text-gray-900 mb-4">Gelogde tijd</h3>
 
-                    <div class="space-y-2 mb-4">
-                        @foreach($ticket->timeLogs->sortByDesc('created_at') as $log)
-                            <div class="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-                                <div>
-                                    <p class="text-sm font-medium text-gray-800">{{ $log->user->name }}</p>
-                                    <p class="text-xs text-gray-400">
-                                        @if($log->started_at)
-                                            {{ $log->started_at->format('d-m-Y H:i') }} → {{ $log->stopped_at->format('H:i') }}
-                                        @else
-                                            {{ $log->created_at->format('d-m-Y H:i') }}
+                        <div class="space-y-2 mb-4">
+                            @foreach($ticket->timeLogs->sortByDesc('created_at') as $log)
+                                <div class="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-800">{{ $log->user->name }}</p>
+                                        <p class="text-xs text-gray-400">
+                                            @if($log->started_at)
+                                                {{ $log->started_at->format('d-m-Y H:i') }} → {{ $log->stopped_at->format('H:i') }}
+                                            @else
+                                                {{ $log->created_at->format('d-m-Y H:i') }}
+                                            @endif
+                                        </p>
+                                    </div>
+                                    <span class="text-sm font-semibold text-gray-700">
+                                        @if(floor($log->duration_minutes / 60) > 0)
+                                            {{ floor($log->duration_minutes / 60) }}u
                                         @endif
-                                    </p>
+                                        @if($log->duration_minutes % 60 > 0)
+                                            {{ $log->duration_minutes % 60 }}m
+                                        @endif
+                                    </span>
                                 </div>
-                                <span class="text-sm font-semibold text-gray-700">
-                                    @if(floor($log->duration_minutes / 60) > 0)
-                                        {{ floor($log->duration_minutes / 60) }}u
-                                    @endif
-                                    @if($log->duration_minutes % 60 > 0)
-                                        {{ $log->duration_minutes % 60 }}m
-                                    @endif
-                                </span>
-                            </div>
-                        @endforeach
-                    </div>
+                            @endforeach
+                        </div>
 
-                    @php $totaal = $ticket->timeLogs->sum('duration_minutes'); @endphp
-                    <div class="flex items-center justify-between pt-2 border-t border-gray-200">
-                        <span class="text-sm font-semibold text-gray-700">Totaal</span>
-                        <span class="text-sm font-semibold text-teal-600">
-                            @if(floor($totaal / 60) > 0)
-                                {{ floor($totaal / 60) }}u
-                            @endif
-                            {{ $totaal % 60 }}m
-                        </span>
+                        @php $totaal = $ticket->timeLogs->sum('duration_minutes'); @endphp
+                        <div class="flex items-center justify-between pt-2 border-t border-gray-200">
+                            <span class="text-sm font-semibold text-gray-700">Totaal</span>
+                            <span class="text-sm font-semibold text-teal-600">
+                                @if(floor($totaal / 60) > 0)
+                                    {{ floor($totaal / 60) }}u
+                                @endif
+                                {{ $totaal % 60 }}m
+                            </span>
+                        </div>
                     </div>
-                </div>
                 @endif
 
                 <!-- Tijd loggen -->
@@ -530,110 +550,108 @@
                         </button>
                     </form>
                 </div>
+
                 @if(isset($correctionLog) && $correctionLog)
-                <div class="bg-white rounded-lg border border-gray-200 p-6"
-                    x-data="{ ignore: {{ $correctionLog->ignore_in_training ? 'true' : 'false' }} }">
+                    <div class="bg-white rounded-lg border border-gray-200 p-6"
+                        x-data="{ ignore: {{ $correctionLog->ignore_in_training ? 'true' : 'false' }} }">
 
-                    <h3 class="text-base font-semibold text-gray-900 mb-1 flex items-center gap-2">
-                        <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a5 5 0 01-1.651.928l-1.39.39A2 2 0 019.56 18h-.12a2 2 0 01-1.907-1.383l-.39-1.39a5 5 0 01.928-1.651l.347-.347z"/>
-                        </svg>
-                        AI Training
-                    </h3>
+                        <h3 class="text-base font-semibold text-gray-900 mb-1 flex items-center gap-2">
+                            <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a5 5 0 01-1.651.928l-1.39.39A2 2 0 019.56 18h-.12a2 2 0 01-1.907-1.383l-.39-1.39a5 5 0 01.928-1.651l.347-.347z"/>
+                            </svg>
+                            AI Training
+                        </h3>
 
-                    <p class="text-xs text-gray-500 mb-4">
-                        De AI heeft een voorstel gedaan dat gecorrigeerd werd.
-                        Markeer als uitzondering als de AI dit <em>niet</em> moet leren.
-                    </p>
+                        <p class="text-xs text-gray-500 mb-4">
+                            De AI heeft een voorstel gedaan dat gecorrigeerd werd.
+                            Markeer als uitzondering als de AI dit <em>niet</em> moet leren.
+                        </p>
 
-                    {{-- AI vs Agent vergelijking --}}
-                    <div class="bg-gray-50 rounded-lg p-3 mb-4 text-xs space-y-1.5 border border-gray-200">
-                        <div class="flex gap-2">
-                            <span class="text-purple-600 font-semibold w-16 flex-shrink-0">AI:</span>
-                            <span class="text-gray-700">
-                                Impact: <strong>{{ $correctionLog->ai_impact ?? '—' }}</strong>
-                                &nbsp;·&nbsp;
-                                Labels: <strong>{{ implode(', ', $correctionLog->ai_labels ?? []) ?: '—' }}</strong>
-                            </span>
-                        </div>
-                        <div class="flex gap-2">
-                            <span class="text-blue-600 font-semibold w-16 flex-shrink-0">Agent:</span>
-                            <span class="text-gray-700">
-                                Impact: <strong>{{ $correctionLog->agent_impact ?? '—' }}</strong>
-                                &nbsp;·&nbsp;
-                                Labels: <strong>{{ implode(', ', $correctionLog->agent_labels ?? []) ?: '—' }}</strong>
-                            </span>
-                        </div>
-                    </div>
-
-                    <form method="POST" action="{{ route('corrections.ignore', $correctionLog) }}">
-                        @csrf
-                        @method('PATCH')
-                        <input type="hidden" name="ignore_in_training" :value="ignore ? '1' : '0'">
-
-                        {{-- Toggle --}}
-                        <label class="flex items-center justify-between cursor-pointer mb-3">
-                            <span class="text-sm font-medium text-gray-700">Uitzondering — niet leren</span>
-                            <button type="button"
-                                @click="ignore = !ignore"
-                                :class="ignore ? 'bg-amber-500' : 'bg-gray-200'"
-                                class="relative w-11 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-1">
-                                <span
-                                    :class="ignore ? 'translate-x-5' : 'translate-x-1'"
-                                    class="block w-4 h-4 bg-white rounded-full shadow transition-transform">
+                        <div class="bg-gray-50 rounded-lg p-3 mb-4 text-xs space-y-1.5 border border-gray-200">
+                            <div class="flex gap-2">
+                                <span class="text-purple-600 font-semibold w-16 flex-shrink-0">AI:</span>
+                                <span class="text-gray-700">
+                                    Impact: <strong>{{ $correctionLog->ai_impact ?? '—' }}</strong>
+                                    &nbsp;·&nbsp;
+                                    Labels: <strong>{{ implode(', ', $correctionLog->ai_labels ?? []) ?: '—' }}</strong>
                                 </span>
-                            </button>
-                        </label>
-
-                        {{-- Reden --}}
-                        <div x-show="ignore" x-cloak class="mb-3">
-                            <label class="block text-xs font-medium text-gray-600 mb-1">
-                                Reden <span class="text-gray-400">(optioneel)</span>
-                            </label>
-                            <textarea
-                                name="ignore_reason"
-                                rows="2"
-                                placeholder="Bijv: klant heeft betalingsachterstand, impact bewust verlaagd…"
-                                class="w-full rounded-lg border-gray-300 focus:border-amber-400 focus:ring-amber-400 text-xs resize-none"
-                            >{{ $correctionLog->ignore_reason }}</textarea>
+                            </div>
+                            <div class="flex gap-2">
+                                <span class="text-blue-600 font-semibold w-16 flex-shrink-0">Agent:</span>
+                                <span class="text-gray-700">
+                                    Impact: <strong>{{ $correctionLog->agent_impact ?? '—' }}</strong>
+                                    &nbsp;·&nbsp;
+                                    Labels: <strong>{{ implode(', ', $correctionLog->agent_labels ?? []) ?: '—' }}</strong>
+                                </span>
+                            </div>
                         </div>
 
-                        {{-- Huidige status badge --}}
-                        @if($correctionLog->ignore_in_training)
-                            <div class="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
-                                <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M12 3a9 9 0 100 18A9 9 0 0012 3z"/>
-                                </svg>
-                                AI leert niet van deze correctie
-                                @if($correctionLog->ignore_reason)
-                                    · <em>{{ $correctionLog->ignore_reason }}</em>
-                                @endif
-                            </div>
-                        @endif
+                        <form method="POST" action="{{ route('corrections.ignore', $correctionLog) }}">
+                            @csrf
+                            @method('PATCH')
+                            <input type="hidden" name="ignore_in_training" :value="ignore ? '1' : '0'">
 
-                        <button type="submit"
-                            :class="ignore
-                                ? 'bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-200'
-                                : 'bg-gray-100 hover:bg-gray-200 text-gray-700'"
-                            class="w-full text-sm font-medium py-2 px-4 rounded-lg transition-colors border">
-                            Opslaan
-                        </button>
-                    </form>
-                </div>
+                            <label class="flex items-center justify-between cursor-pointer mb-3">
+                                <span class="text-sm font-medium text-gray-700">Uitzondering — niet leren</span>
+                                <button type="button"
+                                    @click="ignore = !ignore"
+                                    :class="ignore ? 'bg-amber-500' : 'bg-gray-200'"
+                                    class="relative w-11 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-1">
+                                    <span
+                                        :class="ignore ? 'translate-x-5' : 'translate-x-1'"
+                                        class="block w-4 h-4 bg-white rounded-full shadow transition-transform">
+                                    </span>
+                                </button>
+                            </label>
+
+                            <div x-show="ignore" x-cloak class="mb-3">
+                                <label class="block text-xs font-medium text-gray-600 mb-1">
+                                    Reden <span class="text-gray-400">(optioneel)</span>
+                                </label>
+                                <textarea
+                                    name="ignore_reason"
+                                    rows="2"
+                                    placeholder="Bijv: klant heeft betalingsachterstand, impact bewust verlaagd…"
+                                    class="w-full rounded-lg border-gray-300 focus:border-amber-400 focus:ring-amber-400 text-xs resize-none"
+                                >{{ $correctionLog->ignore_reason }}</textarea>
+                            </div>
+
+                            @if($correctionLog->ignore_in_training)
+                                <div class="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
+                                    <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M12 3a9 9 0 100 18A9 9 0 0012 3z"/>
+                                    </svg>
+                                    AI leert niet van deze correctie
+                                    @if($correctionLog->ignore_reason)
+                                        · <em>{{ $correctionLog->ignore_reason }}</em>
+                                    @endif
+                                </div>
+                            @endif
+
+                            <button type="submit"
+                                :class="ignore
+                                    ? 'bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-200'
+                                    : 'bg-gray-100 hover:bg-gray-200 text-gray-700'"
+                                class="w-full text-sm font-medium py-2 px-4 rounded-lg transition-colors border">
+                                Opslaan
+                            </button>
+                        </form>
+                    </div>
                 @endif
+
                 @if($ticket->motion_task_id)
-                <div class="bg-white rounded-lg border border-gray-200 p-6">
-                    <h3 class="text-base font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                        <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
-                        </svg>
-                        Motion Taak
-                    </h3>
-                    <p class="text-xs text-gray-500">
-                        Taak ID: <span class="font-mono text-gray-700">{{ $ticket->motion_task_id }}</span>
-                    </p>
-                </div>
+                    <div class="bg-white rounded-lg border border-gray-200 p-6">
+                        <h3 class="text-base font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                            <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                            </svg>
+                            Motion Taak
+                        </h3>
+                        <p class="text-xs text-gray-500">
+                            Taak ID: <span class="font-mono text-gray-700">{{ $ticket->motion_task_id }}</span>
+                        </p>
+                    </div>
                 @endif
 
                 <!-- Ticket tijdlijn -->
@@ -658,7 +676,7 @@
                     </div>
 
                     @php
-                        $activities = $ticket->activities()->latest()->get();
+                        $activities   = $ticket->activities()->latest()->get();
                         $statusLabels = [
                             'new'         => 'Nieuw',
                             'in_progress' => 'In behandeling',
@@ -680,8 +698,8 @@
                                     @foreach($changes as $field => $newValue)
                                         @php
                                             $oldValue = $old[$field] ?? null;
-                                            $who  = $activity->causer?->name ?? 'Systeem';
-                                            $when = $activity->created_at->format('d-m-Y H:i');
+                                            $who      = $activity->causer?->name ?? 'Systeem';
+                                            $when     = $activity->created_at->format('d-m-Y H:i');
 
                                             if ($field === 'status') {
                                                 $oldLabel = $statusLabels[$oldValue] ?? $oldValue;
@@ -716,7 +734,6 @@
         </div>
     </div>
 
-
     <style>
         [x-cloak] { display: none !important; }
     </style>
@@ -739,7 +756,6 @@
                     if (!labelId || this.selectedLabelIds.includes(labelId)) {
                         return;
                     }
-
                     this.selectedLabelIds.push(labelId);
                     this.labelToAdd = '';
                 },

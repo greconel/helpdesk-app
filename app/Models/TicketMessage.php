@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
@@ -15,7 +16,18 @@ class TicketMessage extends Model
 
     protected $casts = ['sent_at' => 'datetime'];
 
-    public function ticket(): BelongsTo { return $this->belongsTo(Ticket::class); }
-    public function user(): BelongsTo { return $this->belongsTo(User::class); }
+    public function ticket(): BelongsTo
+    {
+        return $this->belongsTo(Ticket::class);
+    }
 
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(TicketAttachment::class, 'ticket_message_id');
+    }
 }

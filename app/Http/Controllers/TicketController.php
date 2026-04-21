@@ -144,7 +144,8 @@ class TicketController extends Controller
 
     public function show(Ticket $ticket)
     {
-        $ticket->load(['customer', 'agent', 'labels', 'timeLogs.user']);
+        $ticket->load(['customer', 'agent', 'labels', 'timeLogs.user', 'messages.attachments']);
+
         $allLabels     = Label::orderBy('name')->get();
         $correctionLog = \App\Models\AiCorrectionLog::where('ticket_id', $ticket->id)
             ->latest()
@@ -154,7 +155,7 @@ class TicketController extends Controller
         $motionProjectName = null;
         if ($ticket->customer?->motion_project_id) {
             try {
-                $motion = app(\App\Services\MotionService::class);
+                $motion   = app(\App\Services\MotionService::class);
                 $projects = $motion->getProjects();
                 foreach ($projects as $project) {
                     if ($project['id'] === $ticket->customer->motion_project_id) {

@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
@@ -7,7 +8,7 @@ use Illuminate\Support\Facades\Log;
 class GraphMailService
 {
     private string $baseUrl = 'https://graph.microsoft.com/v1.0';
-    private ?string $token = null;
+    private ?string $token  = null;
 
     public function getToken(): string
     {
@@ -33,7 +34,7 @@ class GraphMailService
 
     public function getUnreadMessages(int $top = 25): array
     {
-        $mailbox = config('services.microsoft.mailbox');
+        $mailbox  = config('services.microsoft.mailbox');
         $response = Http::withToken($this->getToken())
             ->get("{$this->baseUrl}/users/{$mailbox}/mailFolders/inbox/messages", [
                 '$top'     => $top,
@@ -52,7 +53,7 @@ class GraphMailService
 
     public function getMessage(string $messageId): ?array
     {
-        $mailbox = config('services.microsoft.mailbox');
+        $mailbox  = config('services.microsoft.mailbox');
         $response = Http::withToken($this->getToken())
             ->get("{$this->baseUrl}/users/{$mailbox}/messages/{$messageId}");
 
@@ -61,7 +62,7 @@ class GraphMailService
 
     public function getMessageHeaders(string $messageId): array
     {
-        $mailbox = config('services.microsoft.mailbox');
+        $mailbox  = config('services.microsoft.mailbox');
         $response = Http::withToken($this->getToken())
             ->get("{$this->baseUrl}/users/{$mailbox}/messages/{$messageId}", [
                 '$select' => 'internetMessageHeaders,internetMessageId',
@@ -78,7 +79,7 @@ class GraphMailService
 
     public function getAttachments(string $messageId): array
     {
-        $mailbox = config('services.microsoft.mailbox');
+        $mailbox  = config('services.microsoft.mailbox');
         $response = Http::withToken($this->getToken())
             ->get("{$this->baseUrl}/users/{$mailbox}/messages/{$messageId}/attachments");
 
@@ -88,6 +89,28 @@ class GraphMailService
         }
 
         return $response->json('value', []);
+    }
+
+    /**
+     * Haal de ruwe bytes op van een specifieke bijlage.
+     * Nodig wanneer contentBytes niet in de standaard response zit (grote bestanden).
+     */
+    public function getAttachmentContent(string $messageId, string $attachmentId): ?string
+    {
+        $mailbox  = config('services.microsoft.mailbox');
+        $response = Http::withToken($this->getToken())
+            ->get("{$this->baseUrl}/users/{$mailbox}/messages/{$messageId}/attachments/{$attachmentId}/\$value");
+
+        if (!$response->successful()) {
+            Log::error('Graph getAttachmentContent mislukt', [
+                'message_id'    => $messageId,
+                'attachment_id' => $attachmentId,
+                'body'          => $response->body(),
+            ]);
+            return null;
+        }
+
+        return $response->body();
     }
 
     public function markAsRead(string $messageId): void
@@ -101,7 +124,7 @@ class GraphMailService
 
     public function sendMail(array $payload): bool
     {
-        $mailbox = config('services.microsoft.mailbox');
+        $mailbox  = config('services.microsoft.mailbox');
         $response = Http::withToken($this->getToken())
             ->post("{$this->baseUrl}/users/{$mailbox}/sendMail", $payload);
 
@@ -111,6 +134,7 @@ class GraphMailService
         }
         return true;
     }
+
     public function markAsUnread(string $messageId): void
     {
         $mailbox = config('services.microsoft.mailbox');
@@ -119,9 +143,10 @@ class GraphMailService
                 'isRead' => false,
             ]);
     }
+
     public function getLatestMessages(int $top = 2): array
     {
-        $mailbox = config('services.microsoft.mailbox');
+        $mailbox  = config('services.microsoft.mailbox');
         $response = Http::withToken($this->getToken())
             ->get("{$this->baseUrl}/users/{$mailbox}/mailFolders/inbox/messages", [
                 '$top'     => $top,

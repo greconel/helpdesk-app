@@ -1,14 +1,17 @@
 <?php
+
 namespace App\Services;
 
 use App\Events\TicketCreated;
 use App\Models\Customer;
 use App\Models\Ticket;
+use App\Models\TicketAttachment;
 use App\Models\TicketMessage;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class MailToTicketService
 {
@@ -126,7 +129,7 @@ class MailToTicketService
             ]);
         }
 
-        TicketMessage::create([
+        $message = TicketMessage::create([
             'ticket_id'           => $ticket->id,
             'from_email'          => $fromEmail,
             'from_name'           => $fromName,
@@ -140,17 +143,85 @@ class MailToTicketService
             'sent_at'             => $receivedAt->toDateTimeString(),
         ]);
 
+        // Bijlagen verwerken
+        if ($hasAttachments) {
+            $this->processAttachments($graphId, $ticket, $message);
+        }
+
         if ($isNewTicket) {
             event(new TicketCreated($ticket));
         } else {
-            // Analyseer de reply via AI
             $this->analyseIncomingReply($ticket, $bodyText);
+        }
+    }
+
+    /**
+     * Verwerk niet-inline bijlagen en sla ze op via Storage.
+     */
+    private function processAttachments(string $graphId, Ticket $ticket, TicketMessage $message): void
+    {
+        $attachments = $this->graph->getAttachments($graphId);
+
+        foreach ($attachments as $attachment) {
+            // Inline afbeeldingen zijn al verwerkt in de HTML body
+            if (!empty($attachment['isInline'])) {
+                continue;
+            }
+
+            // Gekoppelde items (bijv. agenda-uitnodigingen) overslaan
+            if (($attachment['@odata.type'] ?? '') === '#microsoft.graph.itemAttachment') {
+                continue;
+            }
+
+            try {
+                // Bytes ophalen — ofwel direct uit de response, ofwel via aparte API call
+                if (!empty($attachment['contentBytes'])) {
+                    $bytes = base64_decode($attachment['contentBytes']);
+                } else {
+                    $bytes = $this->graph->getAttachmentContent($graphId, $attachment['id']);
+                }
+
+                if (empty($bytes)) {
+                    Log::warning('Bijlage heeft geen inhoud', [
+                        'filename'  => $attachment['name'] ?? 'onbekend',
+                        'ticket'    => $ticket->ticket_number,
+                    ]);
+                    continue;
+                }
+
+                $originalFilename = $attachment['name'] ?? 'bijlage';
+                $extension        = pathinfo($originalFilename, PATHINFO_EXTENSION);
+                $basename         = pathinfo($originalFilename, PATHINFO_FILENAME);
+                $safeFilename     = Str::slug($basename) . ($extension ? '.' . strtolower($extension) : '');
+                $path             = 'attachments/' . date('Y/m') . '/' . uniqid() . '_' . $safeFilename;
+
+                Storage::disk('public')->put($path, $bytes);
+
+                TicketAttachment::create([
+                    'ticket_id'         => $ticket->id,
+                    'ticket_message_id' => $message->id,
+                    'filename'          => $safeFilename,
+                    'original_filename' => $originalFilename,
+                    'mime_type'         => $attachment['contentType'] ?? null,
+                    'size'              => strlen($bytes),
+                    'disk'              => 'public',
+                    'path'              => $path,
+                ]);
+
+                Log::info("Bijlage opgeslagen: {$originalFilename} voor ticket {$ticket->ticket_number}");
+
+            } catch (\Throwable $e) {
+                Log::error('Bijlage verwerken mislukt', [
+                    'filename' => $attachment['name'] ?? 'onbekend',
+                    'ticket'   => $ticket->ticket_number,
+                    'error'    => $e->getMessage(),
+                ]);
+            }
         }
     }
 
     private function analyseIncomingReply(Ticket $ticket, string $bodyText): void
     {
-        // Geen analyse nodig als ticket al gesloten is
         if ($ticket->status === 'closed') {
             return;
         }
@@ -188,9 +259,9 @@ class MailToTicketService
 
         match ($result['action']) {
             'close'    => $ticket->update([
-                            'status'    => 'closed',
-                            'closed_at' => now(),
-                          ]),
+                'status'    => 'closed',
+                'closed_at' => now(),
+            ]),
             'escalate' => $ticket->update(['impact' => 'high']),
             'nothing'  => null,
             default    => null,
@@ -244,7 +315,7 @@ PROMPT;
 
         if (preg_match('/\[#(\d+)\]/', $subject, $matches)) {
             $ticketNumber = '#' . str_pad($matches[1], 4, '0', STR_PAD_LEFT);
-            $ticket = Ticket::where('ticket_number', $ticketNumber)->first();
+            $ticket       = Ticket::where('ticket_number', $ticketNumber)->first();
             if ($ticket) return $ticket;
         }
 

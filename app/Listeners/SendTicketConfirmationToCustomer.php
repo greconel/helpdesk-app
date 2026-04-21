@@ -5,10 +5,14 @@ namespace App\Listeners;
 use App\Events\TicketCreated;
 use App\Models\TicketMessage;
 use App\Services\GraphMailService;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Facades\Log;
 
-class SendTicketConfirmationToCustomer
+class SendTicketConfirmationToCustomer implements ShouldQueue
 {
+    public int $tries   = 3;       
+    public int $backoff = 30;      
+
     public function __construct(private GraphMailService $graph) {}
 
     public function handle(TicketCreated $event): void

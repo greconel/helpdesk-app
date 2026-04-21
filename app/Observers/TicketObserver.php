@@ -2,6 +2,7 @@
 
 namespace App\Observers;
 
+use App\Events\AiCorrectionLogCreated;
 use App\Models\AiAnalysis;
 use App\Models\AiCorrectionLog;
 use App\Models\Ticket;
@@ -23,7 +24,6 @@ class TicketObserver
         $assigneeChanged = $ticket->wasChanged('assigned_to');
         $statusChanged   = $ticket->wasChanged('status');
 
-        // Ticket gesloten → tijd updaten en taak afronden in Motion
         if ($statusChanged && $ticket->status === 'closed' && $ticket->motion_task_id) {
             $ticket->loadMissing('timeLogs');
             $totaalMinuten = $ticket->timeLogs->sum('duration_minutes');
@@ -34,12 +34,11 @@ class TicketObserver
             return;
         }
 
-        // Nieuwe toewijzing aan agent → maak Motion taak aan (alleen als nog geen taak bestaat)
-        if ($assigneeChanged && $ticket->assigned_to && !$ticket->motion_task_id) {
+        if ($assigneeChanged && $ticket->assigned_to && ! $ticket->motion_task_id) {
             $agent = $ticket->agent;
             if ($agent?->motion_user_id) {
                 $projectId = $ticket->customer?->motion_project_id;
-                $taskId = $motion->createTask(
+                $taskId    = $motion->createTask(
                     "[{$ticket->ticket_number}] {$ticket->subject}",
                     $ticket->description,
                     $agent->motion_user_id,
@@ -54,7 +53,6 @@ class TicketObserver
             return;
         }
 
-        // Agent gewijzigd op bestaande taak → update assignee in Motion
         if ($assigneeChanged && $ticket->assigned_to && $ticket->motion_task_id) {
             $agent = $ticket->agent;
             if ($agent?->motion_user_id) {
@@ -68,7 +66,7 @@ class TicketObserver
         $impactGewijzigd = $ticket->wasChanged('impact');
         $labelsGewijzigd = $ticket->wasChanged('ai_labelled_labels');
 
-        if (!$impactGewijzigd && !$labelsGewijzigd) {
+        if (! $impactGewijzigd && ! $labelsGewijzigd) {
             return;
         }
 
@@ -77,14 +75,14 @@ class TicketObserver
         $wasAiImpact = (bool) ($originelen['ai_labelled_impact'] ?? false);
         $wasAiLabels = (bool) ($originelen['ai_labelled_labels'] ?? false);
 
-        if (!$wasAiImpact && !$wasAiLabels) {
+        if (! $wasAiImpact && ! $wasAiLabels) {
             return;
         }
 
         $impactCorrectie = $impactGewijzigd && $wasAiImpact;
         $labelsCorrectie = $labelsGewijzigd && $wasAiLabels;
 
-        if (!$impactCorrectie && !$labelsCorrectie) {
+        if (! $impactCorrectie && ! $labelsCorrectie) {
             return;
         }
 
@@ -96,7 +94,7 @@ class TicketObserver
             'skill_version' => $dbAnalysis->skill_version,
         ] : null;
 
-        if (!$aiAnalysis) {
+        if (! $aiAnalysis) {
             Log::info("AI correctielog: geen AI-voorstel gevonden voor ticket {$ticket->ticket_number}.");
         }
 
@@ -108,7 +106,7 @@ class TicketObserver
 
         $agentLabels = $ticket->labels()->pluck('name')->toArray();
 
-        AiCorrectionLog::create([
+        $log = AiCorrectionLog::create([
             'ticket_id'                  => $ticket->id,
             'user_id'                    => auth()->id(),
             'ai_impact'                  => $aiAnalysis['impact'] ?? $originelen['impact'],
@@ -120,6 +118,9 @@ class TicketObserver
             'ticket_description_snippet' => substr(strip_tags($ticket->description), 0, 500),
             'correction_type'            => $type,
         ]);
+
+        // Dispatch event → listener checkt drempel en start job indien nodig
+        AiCorrectionLogCreated::dispatch($log);
 
         Log::info("AI correctie gelogd voor ticket {$ticket->ticket_number}", [
             'type'         => $type,

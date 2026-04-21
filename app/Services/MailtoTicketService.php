@@ -3,19 +3,19 @@
 namespace App\Services;
 
 use App\Events\TicketCreated;
+use App\Events\TicketReplyReceived;
 use App\Models\Customer;
 use App\Models\Ticket;
-use App\Models\TicketAttachment;
 use App\Models\TicketMessage;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 
 class MailToTicketService
 {
-    public function __construct(private GraphMailService $graph) {}
+    public function __construct(
+        private GraphMailService   $graph,
+        private AttachmentProcessor $attachmentProcessor,
+    ) {}
 
     public function processUnreadMails(): void
     {
@@ -34,80 +34,39 @@ class MailToTicketService
         }
     }
 
-    private function sanitizeHtml(?string $html): ?string
-    {
-        if (!$html) return $html;
-
-        $html = preg_replace('/<style[^>]*>.*?<\/style>/is', '', $html);
-        $html = preg_replace('/<head[^>]*>.*?<\/head>/is', '', $html);
-        $html = preg_replace('/<\/?(html|body)[^>]*>/i', '', $html);
-
-        return trim($html);
-    }
-
     public function processMessage(array $msg): void
     {
-        $graphId         = $msg['id'];
-        $internetMsgId   = $msg['internetMessageId'] ?? null;
-        $subject         = $msg['subject'] ?? '(geen onderwerp)';
-        $fromEmail       = data_get($msg, 'from.emailAddress.address');
-        $fromName        = data_get($msg, 'from.emailAddress.name', $fromEmail);
-        $bodyHtml        = $this->sanitizeHtml(data_get($msg, 'body.content'));
-        $hasAttachments  = $msg['hasAttachments'] ?? false;
-        $hasInlineImages = str_contains($bodyHtml ?? '', 'cid:');
+        $graphId        = $msg['id'];
+        $internetMsgId  = $msg['internetMessageId'] ?? null;
+        $subject        = $msg['subject'] ?? '(geen onderwerp)';
+        $fromEmail      = data_get($msg, 'from.emailAddress.address');
+        $fromName       = data_get($msg, 'from.emailAddress.name', $fromEmail);
+        $hasAttachments = $msg['hasAttachments'] ?? false;
 
-        if ($hasAttachments || $hasInlineImages) {
-            $attachments = $this->graph->getAttachments($graphId);
-            foreach ($attachments as $attachment) {
-                if (!empty($attachment['isInline'])
-                    && !empty($attachment['contentId'])
-                    && !empty($attachment['contentBytes'])
-                    && str_starts_with($attachment['contentType'] ?? '', 'image/')) {
+        // HTML body voorbereiden — inline afbeeldingen vervangen indien aanwezig
+        $bodyHtml = $this->sanitizeHtml(data_get($msg, 'body.content'));
 
-                    $contentId    = $attachment['contentId'];
-                    $contentBytes = base64_decode($attachment['contentBytes']);
-                    $filename     = uniqid('inline_', true) . '_' . preg_replace('/[^a-zA-Z0-9_\.-]/', '', $attachment['name'] ?? 'image.png');
-                    $path         = 'attachments/' . $filename;
-
-                    Storage::disk('public')->put($path, $contentBytes);
-                    $url      = '/storage/' . $path;
-                    $bodyHtml = str_replace("cid:$contentId", $url, $bodyHtml);
-                }
-            }
+        if ($hasAttachments || str_contains($bodyHtml ?? '', 'cid:')) {
+            $bodyHtml = $this->attachmentProcessor->processInlineImages($bodyHtml ?? '', $graphId);
         }
 
         $bodyText = strip_tags($bodyHtml ?? '');
 
-        $receivedAtRaw = $msg['receivedDateTime'] ?? null;
-        $appTimezone   = config('app.timezone', 'UTC');
-
-        try {
-            $receivedAt = $receivedAtRaw
-                ? Carbon::parse($receivedAtRaw)->setTimezone($appTimezone)
-                : now($appTimezone);
-        } catch (\Throwable $e) {
-            Log::warning('receivedDateTime kon niet geparsed worden, fallback naar now(app.timezone)', [
-                'message_id'       => $graphId,
-                'receivedDateTime' => $receivedAtRaw,
-                'error'            => $e->getMessage(),
-            ]);
-            $receivedAt = now($appTimezone);
-        }
-
+        // Duplicaat check
         if (TicketMessage::where('message_id', $graphId)->exists()) {
             return;
         }
 
-        $headers   = $this->graph->getMessageHeaders($graphId);
-        $inReplyTo = $headers['in-reply-to'] ?? null;
+        $receivedAt = $this->parseReceivedAt($msg['receivedDateTime'] ?? null, $graphId);
 
-        $ticket = $this->findExistingTicket($inReplyTo, $subject);
+        // Threading: zoek bestaand ticket op basis van headers of ticketnummer
+        $headers      = $this->graph->getMessageHeaders($graphId);
+        $inReplyTo    = $headers['in-reply-to'] ?? null;
+        $ticket       = $this->findExistingTicket($inReplyTo, $subject);
+        $isNewTicket  = $ticket === null;
 
-        $isNewTicket = false;
-
-        if (!$ticket) {
-            $isNewTicket = true;
-
+        // Ticket aanmaken of updaten
+        if ($isNewTicket) {
             $customer = Customer::firstOrCreate(
                 ['email' => $fromEmail],
                 ['name'  => $fromName]
@@ -129,6 +88,7 @@ class MailToTicketService
             ]);
         }
 
+        // Bericht opslaan
         $message = TicketMessage::create([
             'ticket_id'           => $ticket->id,
             'from_email'          => $fromEmail,
@@ -145,159 +105,49 @@ class MailToTicketService
 
         // Bijlagen verwerken
         if ($hasAttachments) {
-            $this->processAttachments($graphId, $ticket, $message);
+            $this->attachmentProcessor->processAttachments($graphId, $ticket, $message);
         }
 
+        // Events afvuren — listeners doen de rest
         if ($isNewTicket) {
             event(new TicketCreated($ticket));
         } else {
-            $this->analyseIncomingReply($ticket, $bodyText);
+            TicketReplyReceived::dispatch($ticket, $bodyText);
         }
     }
 
-    /**
-     * Verwerk niet-inline bijlagen en sla ze op via Storage.
-     */
-    private function processAttachments(string $graphId, Ticket $ticket, TicketMessage $message): void
+    // ─── private helpers ───────────────────────────────────────────────────
+
+    private function sanitizeHtml(?string $html): ?string
     {
-        $attachments = $this->graph->getAttachments($graphId);
-
-        foreach ($attachments as $attachment) {
-            // Inline afbeeldingen zijn al verwerkt in de HTML body
-            if (!empty($attachment['isInline'])) {
-                continue;
-            }
-
-            // Gekoppelde items (bijv. agenda-uitnodigingen) overslaan
-            if (($attachment['@odata.type'] ?? '') === '#microsoft.graph.itemAttachment') {
-                continue;
-            }
-
-            try {
-                // Bytes ophalen — ofwel direct uit de response, ofwel via aparte API call
-                if (!empty($attachment['contentBytes'])) {
-                    $bytes = base64_decode($attachment['contentBytes']);
-                } else {
-                    $bytes = $this->graph->getAttachmentContent($graphId, $attachment['id']);
-                }
-
-                if (empty($bytes)) {
-                    Log::warning('Bijlage heeft geen inhoud', [
-                        'filename'  => $attachment['name'] ?? 'onbekend',
-                        'ticket'    => $ticket->ticket_number,
-                    ]);
-                    continue;
-                }
-
-                $originalFilename = $attachment['name'] ?? 'bijlage';
-                $extension        = pathinfo($originalFilename, PATHINFO_EXTENSION);
-                $basename         = pathinfo($originalFilename, PATHINFO_FILENAME);
-                $safeFilename     = Str::slug($basename) . ($extension ? '.' . strtolower($extension) : '');
-                $path             = 'attachments/' . date('Y/m') . '/' . uniqid() . '_' . $safeFilename;
-
-                Storage::disk('public')->put($path, $bytes);
-
-                TicketAttachment::create([
-                    'ticket_id'         => $ticket->id,
-                    'ticket_message_id' => $message->id,
-                    'filename'          => $safeFilename,
-                    'original_filename' => $originalFilename,
-                    'mime_type'         => $attachment['contentType'] ?? null,
-                    'size'              => strlen($bytes),
-                    'disk'              => 'public',
-                    'path'              => $path,
-                ]);
-
-                Log::info("Bijlage opgeslagen: {$originalFilename} voor ticket {$ticket->ticket_number}");
-
-            } catch (\Throwable $e) {
-                Log::error('Bijlage verwerken mislukt', [
-                    'filename' => $attachment['name'] ?? 'onbekend',
-                    'ticket'   => $ticket->ticket_number,
-                    'error'    => $e->getMessage(),
-                ]);
-            }
+        if (! $html) {
+            return $html;
         }
+
+        $html = preg_replace('/<style[^>]*>.*?<\/style>/is', '', $html);
+        $html = preg_replace('/<head[^>]*>.*?<\/head>/is', '', $html);
+        $html = preg_replace('/<\/?(html|body)[^>]*>/i', '', $html);
+
+        return trim($html);
     }
 
-    private function analyseIncomingReply(Ticket $ticket, string $bodyText): void
+    private function parseReceivedAt(?string $raw, string $graphId): Carbon
     {
-        if ($ticket->status === 'closed') {
-            return;
-        }
+        $timezone = config('app.timezone', 'UTC');
 
-        $response = Http::withHeaders([
-            'x-api-key'         => config('services.anthropic.key'),
-            'anthropic-version' => '2023-06-01',
-            'content-type'      => 'application/json',
-        ])->timeout(30)->post('https://api.anthropic.com/v1/messages', [
-            'model'      => 'claude-haiku-4-5-20251001',
-            'max_tokens' => 100,
-            'messages'   => [[
-                'role'    => 'user',
-                'content' => $this->buildReplyAnalysisPrompt($bodyText),
-            ]],
-        ]);
-
-        if (!$response->successful()) {
-            Log::warning("AI reply-analyse mislukt voor ticket {$ticket->ticket_number}", [
-                'body' => $response->body(),
+        try {
+            return $raw
+                ? Carbon::parse($raw)->setTimezone($timezone)
+                : now($timezone);
+        } catch (\Throwable $e) {
+            Log::warning('receivedDateTime kon niet geparsed worden, fallback naar now()', [
+                'message_id'       => $graphId,
+                'receivedDateTime' => $raw,
+                'error'            => $e->getMessage(),
             ]);
-            return;
+
+            return now($timezone);
         }
-
-        $content = trim($response->json('content.0.text'));
-        $content = preg_replace('/```json\s*/i', '', $content);
-        $content = preg_replace('/```\s*/i', '', $content);
-        $content = trim($content);
-
-        $result = json_decode($content, true);
-
-        if (!$result || !isset($result['action'])) {
-            return;
-        }
-
-        match ($result['action']) {
-            'close'    => $ticket->update([
-                'status'    => 'closed',
-                'closed_at' => now(),
-            ]),
-            'escalate' => $ticket->update(['impact' => 'high']),
-            'nothing'  => null,
-            default    => null,
-        };
-
-        if ($result['action'] !== 'nothing') {
-            Log::info("AI reply-analyse actie uitgevoerd voor ticket {$ticket->ticket_number}", [
-                'action' => $result['action'],
-                'reden'  => $result['reason'] ?? '—',
-            ]);
-        }
-    }
-
-    private function buildReplyAnalysisPrompt(string $body): string
-    {
-        $tekst = substr($body, 0, 500);
-
-        return <<<PROMPT
-Analyseer de volgende e-mail reply van een klant aan een helpdesk.
-
-Bepaal welke actie het systeem moet ondernemen op basis van de inhoud.
-
-E-mail:
-"{$tekst}"
-
-Mogelijke acties:
-- "close": de klant geeft aan dat het probleem opgelost is, ze er geen hulp meer bij nodig hebben, of ze het verzoek intrekken
-- "escalate": de klant is gefrustreerd, het probleem is dringender geworden, of ze dreigen te escaleren
-- "nothing": gewone reactie, vraag om info, of onduidelijk
-
-Antwoord ALLEEN in dit JSON formaat:
-{
-  "action": "close",
-  "reason": "Klant geeft aan dat het probleem opgelost is"
-}
-PROMPT;
     }
 
     private function findExistingTicket(?string $inReplyTo, string $subject): ?Ticket
@@ -307,16 +157,19 @@ PROMPT;
                 ->orWhere('internet_message_id', trim($inReplyTo, '<>'))
                 ->first();
 
-            if ($msg) return $msg->ticket;
+            if ($msg) {
+                return $msg->ticket;
+            }
 
             $ticket = Ticket::where('last_inbound_message_id', $inReplyTo)->first();
-            if ($ticket) return $ticket;
+            if ($ticket) {
+                return $ticket;
+            }
         }
 
         if (preg_match('/\[#(\d+)\]/', $subject, $matches)) {
             $ticketNumber = '#' . str_pad($matches[1], 4, '0', STR_PAD_LEFT);
-            $ticket       = Ticket::where('ticket_number', $ticketNumber)->first();
-            if ($ticket) return $ticket;
+            return Ticket::where('ticket_number', $ticketNumber)->first();
         }
 
         return null;

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\UpdateAiSkillJob;
 use App\Models\AiCorrectionLog;
 use Illuminate\Http\Request;
 
@@ -24,7 +25,26 @@ class AiSkillController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate(20);
 
-        return view('ai-skill.index', compact('skillContent', 'corrections'));
+        $pendingCount = AiCorrectionLog::where('processed', false)
+            ->where('ignore_in_training', false)
+            ->count();
+
+        return view('ai-skill.index', compact('skillContent', 'corrections', 'pendingCount'));
+    }
+
+    public function triggerUpdate()
+    {
+        $pending = AiCorrectionLog::where('processed', false)
+            ->where('ignore_in_training', false)
+            ->count();
+
+        if ($pending === 0) {
+            return back()->with('info', 'Geen onverwerkte correcties — skill is al up-to-date.');
+        }
+
+        UpdateAiSkillJob::dispatch();
+
+        return back()->with('success', "Skill update gestart voor {$pending} correctie(s). Dit wordt op de achtergrond verwerkt.");
     }
 
     public function update(Request $request)
@@ -33,9 +53,8 @@ class AiSkillController extends Controller
             'skill_content' => 'required|string',
         ]);
 
-        // Backup maken
         $backupDir = storage_path('ai-skill/backups');
-        if (!is_dir($backupDir)) {
+        if (! is_dir($backupDir)) {
             mkdir($backupDir, 0755, true);
         }
 
@@ -44,24 +63,19 @@ class AiSkillController extends Controller
             copy($this->skillPath, $backupPath);
         }
 
-        // Versie ophogen
         $content = $validated['skill_content'];
         $content = preg_replace_callback(
             '/\*\*Versie:\*\*\s*v(\d+)\.(\d+)/m',
-            function ($matches) {
-                return '**Versie:** v' . $matches[1] . '.' . ($matches[2] + 1);
-            },
+            fn ($m) => '**Versie:** v' . $m[1] . '.' . ($m[2] + 1),
             $content
         );
-
-        // Datum bijwerken
         $content = preg_replace(
             '/\*\*Laatst bijgewerkt:\*\*.*$/m',
             '**Laatst bijgewerkt:** ' . now()->format('Y-m-d'),
             $content
         );
 
-        if (!is_dir(dirname($this->skillPath))) {
+        if (! is_dir(dirname($this->skillPath))) {
             mkdir(dirname($this->skillPath), 0755, true);
         }
 

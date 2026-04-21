@@ -6,11 +6,82 @@
 @section('content')
 <div class="px-6 py-6 space-y-6">
 
-    @if(session('success'))
-        <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg text-sm">
-            {{ session('success') }}
+    {{-- Flash meldingen --}}
+    @foreach (['success' => 'green', 'info' => 'blue', 'error' => 'red'] as $type => $color)
+        @if(session($type))
+            <div class="bg-{{ $color }}-50 border border-{{ $color }}-200 text-{{ $color }}-800 px-4 py-3 rounded-lg text-sm">
+                {{ session($type) }}
+            </div>
+        @endif
+    @endforeach
+
+    {{-- Status banner: pending correcties + trigger knop --}}
+    <div class="bg-white rounded-lg border border-gray-200 p-4 flex items-center justify-between gap-4 flex-wrap">
+        <div class="flex items-center gap-3">
+            {{-- Indicator --}}
+            <div class="relative flex-shrink-0">
+                <div class="w-10 h-10 rounded-full flex items-center justify-center
+                    {{ $pendingCount >= 5 ? 'bg-amber-100' : 'bg-gray-100' }}">
+                    <svg class="w-5 h-5 {{ $pendingCount >= 5 ? 'text-amber-600' : 'text-gray-400' }}"
+                         fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a5 5 0 01-1.651.928l-1.39.39A2 2 0 019.56 18h-.12a2 2 0 01-1.907-1.383l-.39-1.39a5 5 0 01.928-1.651l.347-.347z"/>
+                    </svg>
+                </div>
+                @if($pendingCount >= 5)
+                    <span class="absolute -top-1 -right-1 w-3 h-3 bg-amber-500 rounded-full border-2 border-white"></span>
+                @endif
+            </div>
+
+            <div>
+                <p class="text-sm font-semibold text-gray-900">
+                    {{ $pendingCount }}
+                    {{ $pendingCount === 1 ? 'onverwerkte correctie' : 'onverwerkte correcties' }}
+                </p>
+                <p class="text-xs text-gray-500">
+                    @if($pendingCount === 0)
+                        Skill is up-to-date.
+                    @elseif($pendingCount < 5)
+                        Automatisch update bij 5 correcties (nog {{ 5 - $pendingCount }} te gaan).
+                    @else
+                        Drempel bereikt — update aanbevolen of wordt automatisch gestart.
+                    @endif
+                </p>
+            </div>
         </div>
-    @endif
+
+        {{-- Voortgangsbalk richting drempel --}}
+        <div class="flex-1 min-w-[120px] max-w-[200px]">
+            @php $progress = min(100, ($pendingCount / 5) * 100); @endphp
+            <div class="flex items-center justify-between text-xs text-gray-400 mb-1">
+                <span>Voortgang</span>
+                <span>{{ $pendingCount }}/5</span>
+            </div>
+            <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                <div class="h-full rounded-full transition-all duration-500
+                    {{ $pendingCount >= 5 ? 'bg-amber-500' : 'bg-blue-400' }}"
+                    style="width: {{ $progress }}%">
+                </div>
+            </div>
+        </div>
+
+        {{-- Trigger knop --}}
+        <form method="POST" action="{{ route('ai-skill.trigger-update') }}">
+            @csrf
+            <button type="submit"
+                {{ $pendingCount === 0 ? 'disabled' : '' }}
+                class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors
+                    {{ $pendingCount === 0
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-purple-600 hover:bg-purple-700 text-white' }}">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                Nu bijwerken
+            </button>
+        </form>
+    </div>
 
     {{-- Twee kolommen: editor links, correcties rechts --}}
     <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
@@ -48,7 +119,8 @@
                         <button type="submit"
                             class="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-medium text-sm px-5 py-2.5 rounded-lg transition-colors">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/>
                             </svg>
                             Opslaan
                         </button>
@@ -82,7 +154,6 @@
                             {{-- Header rij --}}
                             <div class="flex items-center gap-3 px-4 py-3">
 
-                                {{-- Ticket nummer + onderwerp --}}
                                 <div class="flex-1 min-w-0">
                                     <div class="flex items-center gap-2 flex-wrap">
                                         <a href="{{ route('tickets.show', $log->ticket_id) }}"
@@ -94,19 +165,17 @@
                                         </span>
                                     </div>
                                     <div class="flex items-center gap-2 mt-1 flex-wrap">
-                                        {{-- Type badge --}}
                                         @php
                                             $typeBadge = [
-                                                'impact_only'  => ['bg-blue-50 text-blue-700 border-blue-200',   'Alleen impact'],
-                                                'labels_only'  => ['bg-violet-50 text-violet-700 border-violet-200', 'Alleen labels'],
-                                                'both'         => ['bg-red-50 text-red-700 border-red-200',      'Impact + labels'],
+                                                'impact_only'  => ['bg-blue-50 text-blue-700 border-blue-200',      'Alleen impact'],
+                                                'labels_only'  => ['bg-violet-50 text-violet-700 border-violet-200','Alleen labels'],
+                                                'both'         => ['bg-red-50 text-red-700 border-red-200',         'Impact + labels'],
                                             ][$log->correction_type] ?? ['bg-gray-50 text-gray-600 border-gray-200', $log->correction_type];
                                         @endphp
                                         <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded border {{ $typeBadge[0] }}">
                                             {{ $typeBadge[1] }}
                                         </span>
 
-                                        {{-- Verwerkt badge --}}
                                         @if($log->processed)
                                             <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded border bg-emerald-50 text-emerald-700 border-emerald-200">
                                                 Verwerkt
@@ -124,7 +193,6 @@
                                     </div>
                                 </div>
 
-                                {{-- Toggle uitzondering --}}
                                 <form method="POST"
                                       action="{{ route('corrections.ignore', $log) }}"
                                       x-ref="form{{ $log->id }}">
@@ -145,7 +213,6 @@
                                     </span>
                                 </button>
 
-                                {{-- Details toggle --}}
                                 <button type="button"
                                     @click="open = !open"
                                     class="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0">
@@ -173,7 +240,6 @@
                                     </div>
                                 </div>
 
-                                {{-- Reden veld (alleen als uitzondering aan) --}}
                                 <div x-show="ignore">
                                     <form method="POST" action="{{ route('corrections.ignore', $log) }}" class="flex gap-2">
                                         @csrf
@@ -207,7 +273,6 @@
                     @endforelse
                 </div>
 
-                {{-- Paginering --}}
                 @if($corrections->hasPages())
                     <div class="mt-4 pt-4 border-t border-gray-100">
                         {{ $corrections->links() }}

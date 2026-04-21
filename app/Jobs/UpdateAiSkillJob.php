@@ -1,23 +1,22 @@
 <?php
 
-namespace App\Console\Commands;
+namespace App\Jobs;
 
 use App\Models\AiCorrectionLog;
-use Illuminate\Console\Command;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
-class UpdateAiSkill extends Command
+class UpdateAiSkillJob implements ShouldQueue
 {
-    protected $signature   = 'ai:update-skill {--dry-run : Toon het nieuwe skill bestand zonder op te slaan} {--min=1 : Minimum aantal correcties voor update}';
-    protected $description = 'Update het AI skill bestand op basis van agentcorrecties';
+    use Queueable;
 
-    public function handle(): int
+    public int $tries    = 2;
+    public int $timeout  = 120;
+
+    public function handle(): void
     {
-        $minimum = (int) $this->option('min');
-
-        $this->info('📊 Onverwerkte correcties ophalen...');
-
         $corrections = AiCorrectionLog::where('processed', false)
             ->where('ignore_in_training', false)
             ->with(['ticket', 'agent'])
@@ -25,34 +24,22 @@ class UpdateAiSkill extends Command
             ->get();
 
         if ($corrections->isEmpty()) {
-            $this->info('Geen nieuwe correcties gevonden. Skill blijft ongewijzigd.');
-            return self::SUCCESS;
+            Log::info('UpdateAiSkillJob: geen onverwerkte correcties gevonden.');
+            return;
         }
 
-        $this->info("{$corrections->count()} correctie(s) gevonden.");
-
-        if ($corrections->count() < $minimum) {
-            $this->warn("Minder dan {$minimum} correcties — nog niet genoeg om van te leren.");
-            $this->warn("Gebruik --min=1 om toch te updaten, of wacht op meer correcties.");
-            return self::SUCCESS;
-        }
-
-        // Huidig skill bestand inladen
         $skillPath    = storage_path('ai-skill/labeling-skill.md');
         $currentSkill = file_exists($skillPath)
             ? file_get_contents($skillPath)
             : $this->defaultSkill();
 
-        // Correcties omzetten naar leesbare tekst voor Claude
         $correctionText = $this->formatCorrections($corrections);
-
-        $this->info('🤖 Claude analyseert correcties en schrijft nieuwe regels...');
 
         $response = Http::withHeaders([
             'x-api-key'         => config('services.anthropic.key'),
             'anthropic-version' => '2023-06-01',
             'content-type'      => 'application/json',
-        ])->timeout(60)->post('https://api.anthropic.com/v1/messages', [
+        ])->timeout(90)->post('https://api.anthropic.com/v1/messages', [
             'model'      => 'claude-haiku-4-5-20251001',
             'max_tokens' => 2000,
             'messages'   => [[
@@ -61,53 +48,39 @@ class UpdateAiSkill extends Command
             ]],
         ]);
 
-        if (!$response->successful()) {
-            $this->error('API call mislukt: ' . $response->body());
-            Log::error('UpdateAiSkill: API call mislukt', ['body' => $response->body()]);
-            return self::FAILURE;
+        if (! $response->successful()) {
+            Log::error('UpdateAiSkillJob: Anthropic API call mislukt', ['body' => $response->body()]);
+            throw new \RuntimeException('Anthropic API call mislukt: ' . $response->status());
         }
 
         $newSkill = $response->json('content.0.text');
-
-        // Verwijder eventuele markdown code block tags die Claude toevoegt
-        $newSkill = preg_replace('/^```markdown\s*/i', '', $newSkill);
+        $newSkill = preg_replace('/^```markdown\s*/im', '', $newSkill);
         $newSkill = preg_replace('/^```\s*/im', '', $newSkill);
         $newSkill = trim($newSkill);
 
-        // Dry run: toon resultaat zonder op te slaan
-        if ($this->option('dry-run')) {
-            $this->line('');
-            $this->line('--- NIEUW SKILL BESTAND (dry-run, niet opgeslagen) ---');
-            $this->line('');
-            $this->line($newSkill);
-            $this->line('');
-            $this->line('--- EINDE DRY RUN ---');
-            return self::SUCCESS;
-        }
-
-        // Backup maken van huidige versie
         $this->makeBackup($skillPath, $currentSkill);
 
-        // Nieuw skill bestand opslaan
-        if (!is_dir(dirname($skillPath))) {
+        if (! is_dir(dirname($skillPath))) {
             mkdir(dirname($skillPath), 0755, true);
         }
+
         file_put_contents($skillPath, $newSkill);
 
-        // Correcties markeren als verwerkt
         AiCorrectionLog::whereIn('id', $corrections->pluck('id'))->update([
             'processed' => true,
         ]);
 
-        $this->info("✅ Skill bestand bijgewerkt op basis van {$corrections->count()} correctie(s).");
-        $this->info('💾 Backup bewaard in storage/ai-skill/backups/');
-
-        Log::info('AI skill bijgewerkt', [
+        Log::info('UpdateAiSkillJob: skill bijgewerkt', [
             'corrections_verwerkt' => $corrections->count(),
         ]);
-
-        return self::SUCCESS;
     }
+
+    public function failed(\Throwable $e): void
+    {
+        Log::error('UpdateAiSkillJob mislukt', ['error' => $e->getMessage()]);
+    }
+
+    // ─── private helpers (zelfde logica als het Artisan command) ───────────
 
     private function formatCorrections($corrections): string
     {
@@ -171,26 +144,30 @@ PROMPT;
 
     private function makeBackup(string $skillPath, string $content): void
     {
-        if (!$content) {
+        if (! $content) {
             return;
         }
 
         $backupDir = storage_path('ai-skill/backups');
 
-        if (!is_dir($backupDir)) {
+        if (! is_dir($backupDir)) {
             mkdir($backupDir, 0755, true);
         }
 
-        $backupPath = $backupDir . '/skill-' . now()->format('Y-m-d-His') . '.md';
-        file_put_contents($backupPath, $content);
+        file_put_contents(
+            $backupDir . '/skill-' . now()->format('Y-m-d-His') . '.md',
+            $content
+        );
     }
 
     private function defaultSkill(): string
     {
+        $today = now()->format('Y-m-d');
+
         return <<<MD
 # AI Labeling Skill
 **Versie:** v1.0
-**Aangemaakt:** {$this->today()}
+**Aangemaakt:** {$today}
 **Gebaseerd op:** 0 correcties
 
 ---
@@ -226,10 +203,5 @@ PROMPT;
 
 *Wordt aangevuld naarmate het systeem leert.*
 MD;
-    }
-
-    private function today(): string
-    {
-        return now()->format('Y-m-d');
     }
 }

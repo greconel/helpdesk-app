@@ -9,14 +9,9 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 // Verwerk inkomende mails elke minuut
-Schedule::command('mail:process')->everyMinute();
-
-// Update het AI skill bestand elke nacht om 02:00
-// Alleen als er minimaal 5 nieuwe correcties zijn
-Schedule::command('ai:update-skill')->dailyAt('02:00');
+Schedule::command('mail:process')->everyMinute()->onOneServer();
 
 // Synchroniseer Motion taakstatussen naar tickets (elke 5 minuten)
-Schedule::command('motion:sync')->everyFiveMinutes();
+// Kan later vervangen worden door Motion webhooks als die beschikbaar komen
+Schedule::command('motion:sync')->everyFiveMinutes()->onOneServer();
 
-// Herschrijf het AI skill bestand als er 10+ verwerkte correcties zijn (wekelijks op zondag)
-Schedule::command('ai:rewrite-skill')->weekly()->sundays()->at('03:00');

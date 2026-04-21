@@ -2,14 +2,29 @@
 
 namespace App\Providers;
 
-use Illuminate\Support\ServiceProvider;
+use App\Events\AiCorrectionLogCreated;
+use App\Events\TicketReplyReceived;
+use App\Listeners\AnalyseTicketReply;
+use App\Listeners\CheckSkillUpdateThreshold;
 use App\Models\Ticket;
 use App\Observers\TicketObserver;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
         Ticket::observe(TicketObserver::class);
+
+        Event::listen(
+            AiCorrectionLogCreated::class,
+            CheckSkillUpdateThreshold::class,
+        );
+
+        Event::listen(
+            TicketReplyReceived::class,
+            AnalyseTicketReply::class,
+        );
     }
 }

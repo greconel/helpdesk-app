@@ -24,6 +24,7 @@ class TicketObserver
         $assigneeChanged = $ticket->wasChanged('assigned_to');
         $statusChanged   = $ticket->wasChanged('status');
 
+        // 1. Ticket gesloten → Motion project afronden
         if ($statusChanged && $ticket->status === 'closed' && $ticket->motion_task_id) {
             $ticket->loadMissing('timeLogs');
             $totaalMinuten = $ticket->timeLogs->sum('duration_minutes');
@@ -34,25 +35,42 @@ class TicketObserver
             return;
         }
 
-        if ($assigneeChanged && $ticket->assigned_to && ! $ticket->motion_task_id) {
+        // 2. Agent toegewezen + nog geen project → project aanmaken via template
+        if ($assigneeChanged && $ticket->assigned_to && !$ticket->motion_task_id) {
             $agent = $ticket->agent;
             if ($agent?->motion_user_id) {
-                $projectId = $ticket->customer?->motion_project_id;
-                $taskId    = $motion->createTask(
-                    "[{$ticket->ticket_number}] {$ticket->subject}",
-                    $ticket->description,
-                    $agent->motion_user_id,
-                    $projectId,
-                    $ticket->impact,
-                    $ticket->labels->pluck('name')->toArray()
+                $ticket->loadMissing('customer');
+
+                $projectName = "[{$ticket->ticket_number}] {$ticket->customer->name} — {$ticket->subject}";
+                $projectName = mb_substr($projectName, 0, 120);
+
+                $startDate   = now()->format('Y-m-d');
+                $dueDate     = \Carbon\Carbon::now()->addWeekdays(4)->format('Y-m-d');
+                $description = mb_substr(strip_tags($ticket->description), 0, 300);
+
+                $projectId = $motion->createProjectFromTemplate(
+                    name:                  $projectName,
+                    startDate:             $startDate,
+                    dueDate:               $dueDate,
+                    description:           $description,
+                    developerMotionUserId: $agent->motion_user_id,
                 );
-                if ($taskId) {
-                    $ticket->updateQuietly(['motion_task_id' => $taskId]);
+
+                if ($projectId) {
+                    $ticket->updateQuietly(['motion_task_id' => $projectId]);
+                    Log::info("Motion project aangemaakt voor ticket {$ticket->ticket_number}", [
+                        'project_id' => $projectId,
+                    ]);
+                } else {
+                    Log::warning("Motion project aanmaken mislukt voor ticket {$ticket->ticket_number}");
                 }
+            } else {
+                Log::warning("Ticket {$ticket->ticket_number}: agent heeft geen motion_user_id — project niet aangemaakt.");
             }
             return;
         }
 
+        // 3. Agent gewijzigd + project bestaat al → assignee updaten
         if ($assigneeChanged && $ticket->assigned_to && $ticket->motion_task_id) {
             $agent = $ticket->agent;
             if ($agent?->motion_user_id) {
@@ -119,7 +137,6 @@ class TicketObserver
             'correction_type'            => $type,
         ]);
 
-        // Dispatch event → listener checkt drempel en start job indien nodig
         AiCorrectionLogCreated::dispatch($log);
 
         Log::info("AI correctie gelogd voor ticket {$ticket->ticket_number}", [

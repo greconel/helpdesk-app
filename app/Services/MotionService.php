@@ -17,6 +17,76 @@ class MotionService
         $this->workspaceId = config('services.motion.workspace_id');
     }
 
+    public function createProjectFromTemplate(
+        string $name,
+        string $startDate,
+        string $dueDate,
+        ?string $description = null,
+        ?string $developerMotionUserId = null
+    ): ?string {
+        try {
+            $definitionId = config('services.motion.support_template_id');
+            $stage1Id     = config('services.motion.support_stage_1_id');
+            $stage2Id     = config('services.motion.support_stage_2_id');
+            $managerId    = 'a1ZASSIguIZg9oLExWiElLQNhuG2';
+
+            // Stage 1 (SUPPORT): 3 werkdagen na startdatum
+            $stage1Due = \Carbon\Carbon::parse($startDate)->addWeekdays(3)->format('Y-m-d');
+            // Stage 2 (END OF STAGE): 1 werkdag na stage 1
+            $stage2Due = \Carbon\Carbon::parse($stage1Due)->addWeekdays(1)->format('Y-m-d');
+
+            // Altijd beide variabelen meesturen — developer valt terug op manager als niet ingesteld
+            $stage1Variables = [
+                ['variableName' => 'Project manager', 'value' => $managerId],
+                ['variableName' => 'Developer', 'value' => $developerMotionUserId ?? $managerId],
+            ];
+
+            $payload = [
+                'name'                => $name,
+                'workspaceId'         => $this->workspaceId,
+                'projectDefinitionId' => $definitionId,
+                'startDate'           => $startDate,
+                'dueDate'             => $dueDate,
+                'stages'              => [
+                    [
+                        'stageDefinitionId' => $stage1Id,
+                        'dueDate'           => $stage1Due,
+                        'variables'         => $stage1Variables,
+                    ],
+                    [
+                        'stageDefinitionId' => $stage2Id,
+                        'dueDate'           => $stage2Due,
+                        'variables'         => [],
+                    ],
+                ],
+            ];
+
+            if ($description) {
+                $payload['description'] = $description;
+            }
+
+            Log::info('Motion project payload', ['payload' => $payload]);
+
+            $response = Http::withHeaders(['X-API-Key' => $this->apiKey])
+                ->post("{$this->baseUrl}/projects", $payload);
+
+            if ($response->successful()) {
+                Log::info('Motion project aangemaakt', ['body' => $response->body()]);
+                return $response->json('project.id') ?? $response->json('id');
+            }
+
+            Log::error('Motion createProjectFromTemplate mislukt', [
+                'response' => $response->body(),
+                'status'   => $response->status(),
+            ]);
+            return null;
+
+        } catch (\Throwable $e) {
+            Log::error('Motion createProjectFromTemplate exception', ['message' => $e->getMessage()]);
+            return null;
+        }
+    }
+
     public function createTask(string $title, string $description, string $motionUserId, ?string $projectId = null, ?string $impact = null, array $labels = []): ?string
     {
         try {
@@ -27,14 +97,11 @@ class MotionService
                 default  => 'MEDIUM',
             };
 
-            $labelTekst = !empty($labels) ? implode(', ', $labels) : '—';
-            $impactTekst = $impact ? ucfirst($impact) : '—';
-
+            $labelTekst   = !empty($labels) ? implode(', ', $labels) : '—';
+            $impactTekst  = $impact ? ucfirst($impact) : '—';
             $beschrijving = substr(strip_tags($description), 0, 300);
 
-            $body = "**[SUPPORT]** · Impact: {$impactTekst} · Labels: {$labelTekst}
-
-    {$beschrijving}";
+            $body = "**[SUPPORT]** · Impact: {$impactTekst} · Labels: {$labelTekst}\n\n{$beschrijving}";
 
             $payload = [
                 'name'        => $title,
@@ -98,6 +165,7 @@ class MotionService
             Log::error('Motion completeTask exception', ['message' => $e->getMessage()]);
         }
     }
+
     public function updateDuration(string $motionTaskId, int $minutes): void
     {
         try {
@@ -114,6 +182,7 @@ class MotionService
             Log::error('Motion updateDuration exception', ['message' => $e->getMessage()]);
         }
     }
+
     public function getProjects(): array
     {
         $response = Http::withHeaders(['X-API-Key' => $this->apiKey])
@@ -128,6 +197,7 @@ class MotionService
 
         return $response->json('projects', []);
     }
+
     public function getTask(string $motionTaskId): ?array
     {
         try {
@@ -146,7 +216,6 @@ class MotionService
                 return null;
             }
 
-            // De API geeft de taak direct terug, of genest onder 'task'
             return $response->json('task') ?? $response->json();
 
         } catch (\Throwable $e) {

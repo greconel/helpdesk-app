@@ -37,6 +37,9 @@ return [
     'motion' => [
         'key'          => env('MOTION_API_KEY'),
         'workspace_id' => env('MOTION_WORKSPACE_ID'),
+        'support_template_id' => env('MOTION_SUPPORT_TEMPLATE_ID'),
+        'support_stage_1_id'  => env('MOTION_SUPPORT_STAGE_1_ID'),
+        'support_stage_2_id'  => env('MOTION_SUPPORT_STAGE_2_ID'),
     ],
     'microsoft' => [
         'tenant_id'     => env('MICROSOFT_TENANT_ID'),

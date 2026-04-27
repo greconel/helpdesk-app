@@ -4,7 +4,23 @@
 @section('page-title', 'AI Skill Beheer')
 
 @section('content')
-<div class="px-6 py-6 space-y-6">
+<div
+    class="px-6 py-6 space-y-6"
+    x-data="{
+        active: ['unprocessed'],
+        toggle(status) {
+            const idx = this.active.indexOf(status);
+            if (idx !== -1) {
+                if (this.active.length > 1) this.active.splice(idx, 1);
+            } else {
+                this.active.push(status);
+            }
+        },
+        isActive(status) {
+            return this.active.includes(status);
+        }
+    }"
+>
 
     {{-- Flash meldingen --}}
     @foreach (['success' => 'green', 'info' => 'blue', 'error' => 'red'] as $type => $color)
@@ -96,7 +112,13 @@
                             Dit bestand bepaalt hoe de AI tickets labelt. Wijzigingen worden direct actief.
                         </p>
                     </div>
-                    <span class="text-xs text-gray-400 font-mono">labeling-skill.md</span>
+                    <div class="text-right">
+                        <span class="text-xs text-gray-400 font-mono block">labeling-skill.md</span>
+                        <span class="text-[11px] text-gray-500 block mt-1">
+                            Laatst bijgewerkt:
+                            {{ $skillLastUpdatedAt ? $skillLastUpdatedAt->format('d-m-Y H:i') : 'onbekend' }}
+                        </span>
+                    </div>
                 </div>
 
                 <form method="POST" action="{{ route('ai-skill.update') }}">
@@ -136,7 +158,7 @@
                     <div>
                         <h2 class="text-base font-semibold text-gray-900">Correcties</h2>
                         <p class="text-xs text-gray-500 mt-0.5">
-                            Markeer correcties als uitzondering zodat de AI er niet van leert.
+                            Verwerkte correcties worden standaard uitgefilterd. Markeer correcties als uitzondering zodat de AI er niet van leert.
                         </p>
                     </div>
                     <span class="text-xs text-gray-500">
@@ -144,10 +166,38 @@
                     </span>
                 </div>
 
+                <div class="flex items-center gap-3 mb-4 flex-wrap">
+                    <span class="text-xs font-medium text-gray-500">Toon statussen:</span>
+
+                    <button
+                        type="button"
+                        @click="toggle('unprocessed')"
+                        :class="isActive('unprocessed')
+                            ? 'bg-slate-100 border-slate-400 text-slate-700'
+                            : 'bg-white border-gray-200 text-gray-400 hover:border-gray-400 hover:text-gray-600'"
+                        class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full border transition-colors">
+                        <span class="w-1.5 h-1.5 rounded-full bg-slate-500 flex-shrink-0"></span>
+                        Onverwerkt
+                    </button>
+
+                    <button
+                        type="button"
+                        @click="toggle('processed')"
+                        :class="isActive('processed')
+                            ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
+                            : 'bg-white border-gray-200 text-gray-400 hover:border-gray-400 hover:text-gray-600'"
+                        class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full border transition-colors">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0"></span>
+                        Verwerkt
+                    </button>
+                </div>
+
                 <div class="space-y-3">
                     @forelse($corrections as $log)
                         <div
                             x-data="{ ignore: {{ $log->ignore_in_training ? 'true' : 'false' }}, open: false }"
+                            data-status="{{ $log->processed ? 'processed' : 'unprocessed' }}"
+                            x-show="isActive('{{ $log->processed ? 'processed' : 'unprocessed' }}')"
                             class="rounded-lg border transition-colors"
                             :class="ignore ? 'border-amber-200 bg-amber-50' : 'border-gray-200 bg-white'"
                         >
@@ -271,6 +321,14 @@
                             Nog geen correcties gevonden.
                         </div>
                     @endforelse
+
+                    <div
+                        class="text-center py-10 text-gray-400 text-sm"
+                        x-show="{{ $corrections->count() }} > 0 && Array.from($el.parentElement.querySelectorAll('[data-status]')).every(el => el.style.display === 'none')"
+                        style="display:none"
+                    >
+                        Geen correcties voor geselecteerde statussen
+                    </div>
                 </div>
 
                 @if($corrections->hasPages())

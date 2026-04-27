@@ -192,7 +192,7 @@
                     </div>
 
                     <!-- Antwoord formulier -->
-                    <form action="{{ route('tickets.reply', $ticket) }}" method="POST" class="border-t border-gray-200 pt-4">
+                    <form id="ticket-reply-form" action="{{ route('tickets.reply', $ticket) }}" method="POST" class="border-t border-gray-200 pt-4">
                         @csrf
                         <div class="flex items-start gap-3">
                             <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0 mt-1">
@@ -202,6 +202,7 @@
                             </div>
                             <div class="flex-1">
                                 <textarea
+                                    id="ticket-reply-body"
                                     name="body"
                                     rows="3"
                                     placeholder="Schrijf een bericht aan de klant..."
@@ -771,5 +772,23 @@
                 },
             };
         }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const replyForm = document.getElementById('ticket-reply-form');
+            const replyBody = document.getElementById('ticket-reply-body');
+
+            if (!replyForm || !replyBody) {
+                return;
+            }
+
+            replyBody.addEventListener('keydown', (event) => {
+                if (event.key !== 'Enter' || event.shiftKey) {
+                    return;
+                }
+
+                event.preventDefault();
+                replyForm.requestSubmit();
+            });
+        });
     </script>
 @endsection

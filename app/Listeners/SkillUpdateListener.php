@@ -12,7 +12,7 @@ class SkillUpdateListener
     /**
      * Minimaal aantal onverwerkte correcties voordat de job automatisch start.
      */
-    private const THRESHOLD = 5;
+    private const THRESHOLD = 10;
 
     public function handle(AiCorrectionLogCreated $event): void
     {

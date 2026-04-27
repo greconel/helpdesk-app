@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Jobs\UpdateAiSkillJob;
 use App\Models\AiCorrectionLog;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 
 class AiSkillController extends Controller
 {
@@ -15,11 +16,16 @@ class AiSkillController extends Controller
         $this->skillPath = storage_path('ai-skill/labeling-skill.md');
     }
 
-    public function index()
+    public function index(Request $request)
     {
         $skillContent = file_exists($this->skillPath)
             ? file_get_contents($this->skillPath)
             : '';
+
+        $skillLastUpdatedAt = file_exists($this->skillPath)
+            ? Carbon::createFromTimestamp(filemtime($this->skillPath))
+                ->setTimezone(config('app.timezone', 'UTC'))
+            : null;
 
         $corrections = AiCorrectionLog::with(['ticket', 'agent'])
             ->orderBy('created_at', 'desc')
@@ -29,7 +35,12 @@ class AiSkillController extends Controller
             ->where('ignore_in_training', false)
             ->count();
 
-        return view('ai-skill.index', compact('skillContent', 'corrections', 'pendingCount'));
+        return view('ai-skill.index', compact(
+            'skillContent',
+            'skillLastUpdatedAt',
+            'corrections',
+            'pendingCount',
+        ));
     }
 
     public function triggerUpdate()

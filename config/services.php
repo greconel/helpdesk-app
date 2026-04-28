@@ -35,11 +35,12 @@ return [
         ],
     ],
     'motion' => [
-        'key'          => env('MOTION_API_KEY'),
-        'workspace_id' => env('MOTION_WORKSPACE_ID'),
-        'support_template_id' => env('MOTION_SUPPORT_TEMPLATE_ID'),
-        'support_stage_1_id'  => env('MOTION_SUPPORT_STAGE_1_ID'),
-        'support_stage_2_id'  => env('MOTION_SUPPORT_STAGE_2_ID'),
+        'key'                         => env('MOTION_API_KEY'),
+        'workspace_id'                => env('MOTION_WORKSPACE_ID'),
+        'support_template_id'         => env('MOTION_SUPPORT_TEMPLATE_ID'),
+        'support_stage_1_id'          => env('MOTION_SUPPORT_STAGE_1_ID'),
+        'support_stage_2_id'          => env('MOTION_SUPPORT_STAGE_2_ID'),
+        'support_project_manager_id'  => env('MOTION_SUPPORT_PROJECT_MANAGER_ID', 'a1ZASSIguIZg9oLExWiElLQNhuG2'),
     ],
     'microsoft' => [
         'tenant_id'     => env('MICROSOFT_TENANT_ID'),

@@ -41,18 +41,27 @@ class TicketObserver
             if ($agent?->motion_user_id) {
                 $ticket->loadMissing('customer');
 
-                $projectName = "[{$ticket->ticket_number}] {$ticket->customer->name} — {$ticket->subject}";
-                $projectName = mb_substr($projectName, 0, 120);
+                $projectName = $motion->buildSupportProjectName(
+                    (string) $ticket->ticket_number,
+                    $ticket->customer->name,
+                );
+                $projectDescription = $motion->buildSupportProjectDescription(
+                    (string) $ticket->ticket_number,
+                    $ticket->customer->name,
+                    $ticket->subject,
+                    $ticket->impact,
+                    $ticket->labels()->pluck('name')->toArray(),
+                    mb_substr(strip_tags($ticket->description), 0, 600),
+                );
 
                 $startDate   = now()->format('Y-m-d');
                 $dueDate     = \Carbon\Carbon::now()->addWeekdays(4)->format('Y-m-d');
-                $description = mb_substr(strip_tags($ticket->description), 0, 300);
 
                 $projectId = $motion->createProjectFromTemplate(
                     name:                  $projectName,
                     startDate:             $startDate,
                     dueDate:               $dueDate,
-                    description:           $description,
+                    description:           $projectDescription,
                     developerMotionUserId: $agent->motion_user_id,
                 );
 

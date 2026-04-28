@@ -17,6 +17,42 @@ class MotionService
         $this->workspaceId = config('services.motion.workspace_id');
     }
 
+    public function buildSupportProjectName(string $ticketNumber, string $customerName): string
+    {
+        $ticketNumber = ltrim($ticketNumber, '#');
+        $normalizedTicketNumber = ctype_digit($ticketNumber)
+            ? str_pad($ticketNumber, 4, '0', STR_PAD_LEFT)
+            : $ticketNumber;
+
+        return mb_substr("SUPPORT - [#{$normalizedTicketNumber}] {$customerName}", 0, 120);
+    }
+
+    public function buildSupportProjectDescription(
+        string $ticketNumber,
+        string $customerName,
+        string $subject,
+        ?string $impact = null,
+        array $labels = [],
+        ?string $description = null
+    ): string {
+        $ticketNumber = ltrim($ticketNumber, '#');
+        $labelTekst = !empty($labels) ? implode(', ', $labels) : 'Geen labels';
+        $impactTekst = $impact ? ucfirst($impact) : 'Niet opgegeven';
+        $beschrijving = trim((string) $description);
+        $beschrijving = $beschrijving !== '' ? $beschrijving : 'Geen beschrijving beschikbaar.';
+
+        return implode("\n", [
+            "Ticket: #{$ticketNumber}",
+            "Klant: {$customerName}",
+            "Onderwerp: {$subject}",
+            "Impact: {$impactTekst}",
+            "Labels: {$labelTekst}",
+            '',
+            'Beschrijving:',
+            $beschrijving,
+        ]);
+    }
+
     public function createProjectFromTemplate(
         string $name,
         string $startDate,
@@ -28,18 +64,32 @@ class MotionService
             $definitionId = config('services.motion.support_template_id');
             $stage1Id     = config('services.motion.support_stage_1_id');
             $stage2Id     = config('services.motion.support_stage_2_id');
-            $managerId    = 'a1ZASSIguIZg9oLExWiElLQNhuG2';
+            $projectManagerMotionUserId = config('services.motion.support_project_manager_id');
 
-            // Stage 1 (SUPPORT): 3 werkdagen na startdatum
+            if (!$stage1Id || !$stage2Id) {
+                Log::warning('Motion stages niet ingesteld voor template-project', [
+                    'support_stage_1_id_present' => (bool) $stage1Id,
+                    'support_stage_2_id_present' => (bool) $stage2Id,
+                ]);
+                return null;
+            }
+
+            if (!$developerMotionUserId) {
+                Log::warning('Motion template project kan niet worden aangemaakt zonder developer Motion user id', [
+                    'project_manager_id_present' => (bool) $projectManagerMotionUserId,
+                ]);
+                return null;
+            }
+
+            if (!$projectManagerMotionUserId) {
+                Log::warning('Motion template project kan niet worden aangemaakt zonder project manager Motion user id', [
+                    'developer_id_present' => (bool) $developerMotionUserId,
+                ]);
+                return null;
+            }
+
             $stage1Due = \Carbon\Carbon::parse($startDate)->addWeekdays(3)->format('Y-m-d');
-            // Stage 2 (END OF STAGE): 1 werkdag na stage 1
             $stage2Due = \Carbon\Carbon::parse($stage1Due)->addWeekdays(1)->format('Y-m-d');
-
-            // Altijd beide variabelen meesturen — developer valt terug op manager als niet ingesteld
-            $stage1Variables = [
-                ['variableName' => 'Project manager', 'value' => $managerId],
-                ['variableName' => 'Developer', 'value' => $developerMotionUserId ?? $managerId],
-            ];
 
             $payload = [
                 'name'                => $name,
@@ -47,23 +97,38 @@ class MotionService
                 'projectDefinitionId' => $definitionId,
                 'startDate'           => $startDate,
                 'dueDate'             => $dueDate,
+                'description'         => $description,
                 'stages'              => [
                     [
-                        'stageDefinitionId' => $stage1Id,
-                        'dueDate'           => $stage1Due,
-                        'variables'         => $stage1Variables,
+                        'stageDefinitionId'  => $stage1Id,
+                        'dueDate'            => $stage1Due,
+                        'variableInstances'   => [
+                            [
+                                'variableName' => 'Developer',
+                                'value'        => $developerMotionUserId,
+                            ],
+                            [
+                                'variableName' => 'Project manager',
+                                'value'        => $projectManagerMotionUserId,
+                            ],
+                        ],
                     ],
                     [
-                        'stageDefinitionId' => $stage2Id,
-                        'dueDate'           => $stage2Due,
-                        'variables'         => [],
+                        'stageDefinitionId'  => $stage2Id,
+                        'dueDate'            => $stage2Due,
+                        'variableInstances'   => [
+                            [
+                                'variableName' => 'Developer',
+                                'value'        => $developerMotionUserId,
+                            ],
+                            [
+                                'variableName' => 'Project manager',
+                                'value'        => $projectManagerMotionUserId,
+                            ],
+                        ],
                     ],
                 ],
             ];
-
-            if ($description) {
-                $payload['description'] = $description;
-            }
 
             Log::info('Motion project payload', ['payload' => $payload]);
 
@@ -97,11 +162,19 @@ class MotionService
                 default  => 'MEDIUM',
             };
 
-            $labelTekst   = !empty($labels) ? implode(', ', $labels) : '—';
-            $impactTekst  = $impact ? ucfirst($impact) : '—';
-            $beschrijving = substr(strip_tags($description), 0, 300);
+            $labelTekst   = !empty($labels) ? implode(', ', $labels) : 'Geen labels';
+            $impactTekst  = $impact ? ucfirst($impact) : 'Niet opgegeven';
+            $beschrijving = trim(substr(strip_tags($description), 0, 600));
+            $beschrijving = $beschrijving !== '' ? $beschrijving : 'Geen beschrijving beschikbaar.';
 
-            $body = "**[SUPPORT]** · Impact: {$impactTekst} · Labels: {$labelTekst}\n\n{$beschrijving}";
+            $body = implode("\n", [
+                '**[SUPPORT]**',
+                "Impact: {$impactTekst}",
+                "Labels: {$labelTekst}",
+                '',
+                'Beschrijving:',
+                $beschrijving,
+            ]);
 
             $payload = [
                 'name'        => $title,

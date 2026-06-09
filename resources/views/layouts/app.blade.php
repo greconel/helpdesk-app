@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@yield('title', 'Helpdesk')</title>
+    <title>{{ isset($title) ? $title : trim($__env->yieldContent('title', 'Helpdesk')) }}</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
@@ -15,12 +15,22 @@
         <div class="flex-1 flex flex-col min-w-0">
             <header class="bg-white border-b border-gray-200 flex-shrink-0 sticky top-0 z-10">
                 <div class="px-6 py-4">
-                    <h2 class="text-xl font-semibold text-gray-900">@yield('page-title')</h2>
+                    @isset($header)
+                        <div class="text-xl font-semibold text-gray-900">
+                            {{ $header }}
+                        </div>
+                    @else
+                        <h2 class="text-xl font-semibold text-gray-900">@yield('page-title')</h2>
+                    @endisset
                 </div>
             </header>
 
             <main class="flex-1 overflow-auto">
-                @yield('content')
+                @isset($slot)
+                    {{ $slot }}
+                @else
+                    @yield('content')
+                @endisset
             </main>
         </div>
 
